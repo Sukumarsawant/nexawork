@@ -1,11 +1,15 @@
-import Image from "next/image";
+'use client'
+
+import Login from "@/component/Login";
+
+
 
 export default function Home() {
   return (
     <>
-    <h1>
-      Lets start..!!!!!!!!
-    </h1>
+      <div>
+       <Login/>
+      </div>
     </>
   );
 }
