@@ -85,7 +85,13 @@ export default function ResumeUpload() {
         body: formData 
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        const text = await response.text(); // read raw text
+        data = text ? JSON.parse(text) : {}; // only parse if not empty
+      } catch {
+        throw new Error("Invalid JSON response from server");
+      }
 
       if (!response.ok) {
         throw new Error(data.error || "Failed to analyze resume");
@@ -205,96 +211,122 @@ export default function ResumeUpload() {
         </div>
       ) : (
         /* Results Display */
-        <div className="space-y-6">
-          {/* Score Card */}
-          <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-lg p-6 border border-purple-500/30">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Analysis Results</h3>
-              <div className="flex items-center gap-2">
-                <CheckCircle size={20} className="text-green-400" />
-                <span className="text-green-400 text-sm">Analysis Complete</span>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-white mb-1">{result.score}/100</div>
-                <div className="text-gray-400 text-sm">Overall Match Score</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-white mb-1">{result.match_percentage || result.score}%</div>
-                <div className="text-gray-400 text-sm">Skills Match</div>
-              </div>
-            </div>
-          </div>
+       /* Results Display */
+<div className="space-y-6">
+  {/* Score Card */}
+  <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-lg p-6 border border-purple-500/30">
+    <div className="flex items-center justify-between mb-4">
+      <h3 className="text-lg font-semibold text-white">Analysis Results</h3>
+      <div className="flex items-center gap-2">
+        <CheckCircle size={20} className="text-green-400" />
+        <span className="text-green-400 text-sm">Analysis Complete</span>
+      </div>
+    </div>
 
-          {/* Strengths */}
-          {result.strengths && result.strengths.length > 0 && (
-            <div>
-              <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
-                <CheckCircle size={16} className="text-green-400" />
-                Your Strengths
-              </h4>
-              <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
-                <ul className="space-y-2">
-                  {result.strengths.map((strength, index) => (
-                    <li key={index} className="text-green-300 text-sm flex items-start gap-2">
-                      <span className="text-green-400 mt-1">•</span>
-                      {strength}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          )}
+    {/* Progress Bar */}
+    <div className="mb-4">
+      <p className="text-gray-300 text-sm mb-2">Overall Match</p>
+      <div className="w-full bg-gray-700 rounded-full h-3">
+        <div
+          className="bg-gradient-to-r from-purple-500 to-blue-500 h-3 rounded-full"
+          style={{ width: `${result.score}%` }}
+        ></div>
+      </div>
+      <p className="text-white text-lg font-bold mt-2">{result.score}/100</p>
+    </div>
+  </div>
 
-          {/* Missing Skills */}
-          {result.missing_skills && result.missing_skills.length > 0 && (
-            <div>
-              <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
-                <AlertCircle size={16} className="text-yellow-400" />
-                Missing Skills
-              </h4>
-              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
-                <div className="flex flex-wrap gap-2">
-                  {result.missing_skills.map((skill, index) => (
-                    <span key={index} className="px-3 py-1 bg-yellow-500/20 text-yellow-300 rounded-full text-sm">
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Improvement Suggestions */}
-          {result.improvement_suggestions && result.improvement_suggestions.length > 0 && (
-            <div>
-              <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
-                <AlertCircle size={16} className="text-blue-400" />
-                Improvement Suggestions
-              </h4>
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                <ul className="space-y-3">
-                  {result.improvement_suggestions.map((suggestion, index) => (
-                    <li key={index} className="text-blue-300 text-sm flex items-start gap-2">
-                      <span className="text-blue-400 mt-1">•</span>
-                      {suggestion}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          )}
-
-          {/* Reset Button */}
-          <button
-            onClick={resetForm}
-            className="w-full bg-gray-600 hover:bg-gray-700 text-white py-3 px-6 rounded-lg font-semibold transition-colors duration-200"
-          >
-            Analyze Another Resume
-          </button>
+  {/* Found vs Missing Skills */}
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    {result.found_skills && result.found_skills.length > 0 && (
+      <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+        <h4 className="text-green-400 font-semibold mb-2">Found Skills</h4>
+        <div className="flex flex-wrap gap-2">
+          {result.found_skills.map((skill, i) => (
+            <span
+              key={i}
+              className="px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-sm"
+            >
+              {skill}
+            </span>
+          ))}
         </div>
+      </div>
+    )}
+
+    {result.missing_skills && result.missing_skills.length > 0 && (
+      <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
+        <h4 className="text-yellow-400 font-semibold mb-2">Missing Skills</h4>
+        <div className="flex flex-wrap gap-2">
+          {result.missing_skills.map((skill, i) => (
+            <span
+              key={i}
+              className="px-3 py-1 bg-yellow-500/20 text-yellow-300 rounded-full text-sm"
+            >
+              {skill}
+            </span>
+          ))}
+        </div>
+      </div>
+    )}
+  </div>
+
+  {/* Strengths */}
+  {result.strengths && result.strengths.length > 0 && (
+    <div>
+      <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+        <CheckCircle size={16} className="text-green-400" />
+        Your Strengths
+      </h4>
+      <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+        <ul className="space-y-2">
+          {result.strengths.map((strength, index) => (
+            <li
+              key={index}
+              className="text-green-300 text-sm flex items-start gap-2"
+            >
+              <span className="text-green-400 mt-1">•</span>
+              {strength}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  )}
+
+  {/* Suggestions */}
+  {result.improvement_suggestions &&
+    result.improvement_suggestions.length > 0 && (
+      <div>
+        <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+          <AlertCircle size={16} className="text-blue-400" />
+          Improvement Suggestions
+        </h4>
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+          <ul className="space-y-3">
+            {result.improvement_suggestions.map((suggestion, index) => (
+              <li
+                key={index}
+                className="text-blue-300 text-sm flex items-start gap-2"
+              >
+                <span className="text-blue-400 mt-1">•</span>
+                {suggestion}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    )}
+
+  {/* Reset Button */}
+  <button
+    onClick={resetForm}
+    className="w-full bg-gray-600 hover:bg-gray-700 text-white py-3 px-6 rounded-lg font-semibold transition-colors duration-200"
+  >
+    Analyze Another Resume
+  </button>
+</div>
+
       )}
     </div>
   );

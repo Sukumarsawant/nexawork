@@ -1,97 +1,74 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-export async function POST(request) {
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+export async function POST(req) {
   try {
-    const formData = await request.formData();
-    const file = formData.get('resume') ;
-    const jobDescription = formData.get('jobDescription') ;
+    const formData = await req.formData();
+    const file = formData.get("resume");
+    const jobDescription = formData.get("jobDescription");
 
-    if (!file) {
-      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
-    }
-
-    if (!jobDescription) {
-      return NextResponse.json({ error: 'Job description is required' }, { status: 400 });
-    }
-
-    // Only support plain text files for now
-    if (file.type !== 'text/plain') {
+    if (!file || !jobDescription) {
       return NextResponse.json(
-        { error: 'Currently only text (.txt) files are supported. Please convert your resume to a text file.' },
+        { error: "Missing resume or job description" },
         { status: 400 }
       );
     }
 
-    // Convert file to text
-    const bytes = await file.arrayBuffer();
-    const resumeText = new TextDecoder().decode(bytes);
+    // ✅ Read resume text
+    const resumeText = await file.text();
 
-    if (!resumeText.trim()) {
-      return NextResponse.json({ error: 'Could not extract text from the uploaded file' }, { status: 400 });
+    // ✅ Force Gemini to ONLY return JSON
+    const prompt = `
+You are a JSON-only API. Do not include any text outside JSON.
+
+Compare the following resume and job description.
+Return ONLY valid JSON in this format:
+
+{
+  "score": number,
+  "found_skills": [string],
+  "missing_skills": [string],
+  "strengths": [string],
+  "improvement_suggestions": [string]
+}
+
+Resume: """${resumeText}"""
+Job Description: """${jobDescription}"""
+`;
+
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const result = await model.generateContent(prompt);
+    const raw = result.response.text();
+
+    console.log("Gemini raw output:", raw);
+
+    // ✅ Extract JSON safely (ignores extra text)
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return NextResponse.json(
+        { error: "AI response could not be parsed", raw },
+        { status: 500 }
+      );
     }
 
-    // Perform simple keyword analysis
-    const analysis = performSimpleAnalysis(resumeText, jobDescription);
+    let analysis;
+    try {
+      analysis = JSON.parse(jsonMatch[0]);
+    } catch (err) {
+      return NextResponse.json(
+        { error: "Invalid JSON from AI", raw },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(analysis);
-  } catch (error) {
-    console.error('Resume upload error:', error);
+  } catch (err) {
+    console.error("Resume upload error:", err);
     return NextResponse.json(
-      { error: 'Failed to process resume. Please check your file and try again.' },
+      { error: "Failed to process resume" },
       { status: 500 }
     );
   }
 }
-
-function performSimpleAnalysis(resumeText: string, jobDescription: string) {
-    const normalizeText = (text: string) =>
-      text.toLowerCase().replace(/[^a-z0-9+./ ]/g, " "); // keep words + .js etc.
-  
-    const resumeTextLower = normalizeText(resumeText);
-    const jobTextLower = normalizeText(jobDescription);
-  
-    const commonSkills = [
-      'javascript', 'python', 'java', 'react', 'node.js', 'html', 'css', 'sql', 'mongodb',
-      'aws', 'docker', 'kubernetes', 'git', 'agile', 'scrum', 'leadership', 'communication',
-      'problem solving', 'teamwork', 'project management', 'ui/ux', 'design', 'marketing',
-      'sales', 'customer service', 'data analysis', 'machine learning', 'ai', 'blockchain'
-    ];
-  
-    // ✅ Use regex to match whole words (no partials like "java" in "javascript")
-    const hasSkill = (text: string, skill: string) => {
-      const pattern = new RegExp(`\\b${skill.replace(/[.+]/g, "\\$&")}\\b`, "i");
-      return pattern.test(text);
-    };
-  
-    const foundSkills = commonSkills.filter(skill => hasSkill(resumeTextLower, skill));
-    const missingSkills = commonSkills.filter(
-      skill => !hasSkill(resumeTextLower, skill) && hasSkill(jobTextLower, skill)
-    );
-  
-    // Score
-    const totalRelevant = foundSkills.length + missingSkills.length;
-    const score = totalRelevant > 0 ? Math.round((foundSkills.length / totalRelevant) * 100) : 50;
-  
-    return {
-      score,
-      match_percentage: score,
-      found_skills: foundSkills,
-      missing_skills: missingSkills,
-      strengths: [
-        `Found ${foundSkills.length} relevant skills in your resume`,
-        foundSkills.includes("communication")
-          ? "Strong communication skills highlighted"
-          : "Your resume shows good technical background",
-        "Consider highlighting your achievements more"
-      ],
-      improvement_suggestions: [
-        missingSkills.length > 0
-          ? `Add experience with: ${missingSkills.join(", ")}`
-          : "Your skills match well with the job requirements",
-        "Include specific metrics and achievements",
-        "Add relevant certifications if applicable",
-        "Tailor your resume summary to match the job description"
-      ]
-    };
-  }
-  
