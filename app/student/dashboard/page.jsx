@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Bell, Search, User, TrendingUp, DollarSign, Clock, MapPin, Plus, BookOpen, Wallet } from 'lucide-react'
 import LogoutButton from '@/component/LogOutButton'
 import { supabase } from '@/lib/supabaseClient'
+import ResumeUpload from '@/component/ResumeUpload'
 
 export default function StudentDashboard() {
   const [user, setUser] = useState(null);
@@ -206,7 +207,9 @@ export default function StudentDashboard() {
                   </div>
                 ))}
               </div>
+              
             </div>
+            <ResumeUpload/>
 
             {/* Logout */}
             <div className="bg-[#1B1B2F] rounded-xl p-6 border border-gray-700">
