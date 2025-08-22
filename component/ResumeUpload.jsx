@@ -36,11 +36,13 @@ export default function ResumeUpload() {
 
   const isValidFile = (file) => {
     const validTypes = [
-      "text/plain"
+      "text/plain",
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ];
-    
+
     if (!validTypes.includes(file.type)) {
-      setError("Currently only text (.txt) files are supported. Please convert your resume to a text file.");
+      setError("Currently only TXT, PDF, and DOCX files are supported. If you see issues, try converting to TXT.");
       return false;
     }
     
@@ -159,7 +161,7 @@ export default function ResumeUpload() {
                              <input
                  type="file"
                  onChange={handleFileSelect}
-                 accept=".txt"
+                 accept=".txt,.pdf,.docx"
                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                />
               
@@ -175,7 +177,7 @@ export default function ResumeUpload() {
                     {file ? file.name : "Drop your resume here or click to browse"}
                   </p>
                                    <p className="text-gray-400 text-sm mt-1">
-                   Currently supports TXT files only (max 5MB)
+                   Currently supports PDF files only (max 5MB)
                  </p>
                 </div>
               </div>
