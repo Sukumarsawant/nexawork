@@ -1,0 +1,5 @@
+John Doe
+Email: john.doe@example.com
+Phone: +1 555-123-4567
+
+Experienced software engineer with Python, JavaScript, React, Next.js, and SQL. Worked on backend systems, Docker, and AWS deployments.
