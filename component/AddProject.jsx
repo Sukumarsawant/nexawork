@@ -44,9 +44,7 @@ const AddProject = ({ userId, onProjectAdded, onClose }) => {
         .from('projects')
         .insert([projectData]);
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       toast.success('Project added successfully!');
       onProjectAdded();
@@ -69,11 +67,13 @@ const AddProject = ({ userId, onProjectAdded, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50 p-4">
-      <div className="bg-purple-950 rounded-xl w-full max-w-2xl max-h-[90vh] shadow-xl relative flex flex-col">
-        <div className="flex-shrink-0 p-6 border-b border-purple-800">
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
+      <div className="bg-[#0E0E12] rounded-2xl w-full max-w-2xl max-h-[90vh] shadow-2xl relative flex flex-col border border-gray-700">
+        
+        {/* Header */}
+        <div className="flex-shrink-0 p-6 border-b border-gray-700">
           <button
-            className="absolute top-4 right-4 text-gray-300 hover:text-white text-lg font-semibold"
+            className="absolute top-4 right-4 text-gray-400 hover:text-white text-lg font-semibold"
             onClick={onClose}
           >
             ✕
@@ -83,101 +83,109 @@ const AddProject = ({ userId, onProjectAdded, onClose }) => {
           </h2>
         </div>
         
+        {/* Form */}
         <div className="flex-1 overflow-y-auto p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
+            
+            {/* Title */}
             <div>
-              <label className="text-white block mb-1 text-sm font-medium">Project Title *</label>
+              <label className="text-gray-300 block mb-1 text-sm font-medium">Project Title *</label>
               <input
                 type="text"
                 name="title"
                 value={formData.title}
                 onChange={handleChange}
-                className="w-full p-3 rounded-lg bg-[#5E4A77] text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                className="w-full p-3 rounded-lg bg-[#3E3E55] text-white focus:outline-none focus:ring-2 focus:ring-gray-400"
                 required
                 placeholder="Enter project title"
               />
             </div>
 
+            {/* Description */}
             <div>
-              <label className="text-white block mb-1 text-sm font-medium">Description *</label>
+              <label className="text-gray-300 block mb-1 text-sm font-medium">Description *</label>
               <textarea
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
-                className="w-full p-3 rounded-lg bg-[#5E4A77] text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                className="w-full p-3 rounded-lg bg-[#3E3E55] text-white focus:outline-none focus:ring-2 focus:ring-gray-400"
                 rows="4"
                 required
                 placeholder="Describe your project..."
               />
             </div>
 
+            {/* Technologies */}
             <div>
-              <label className="text-white block mb-1 text-sm font-medium">Technologies (comma separated)</label>
+              <label className="text-gray-300 block mb-1 text-sm font-medium">Technologies (comma separated)</label>
               <input
                 type="text"
                 name="technologies"
                 value={formData.technologies}
                 onChange={handleChange}
-                className="w-full p-3 rounded-lg bg-[#5E4A77] text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                className="w-full p-3 rounded-lg bg-[#3E3E55] text-white focus:outline-none focus:ring-2 focus:ring-gray-400"
                 placeholder="e.g., React, Node.js, MongoDB"
               />
             </div>
 
+            {/* URLs */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-white block mb-1 text-sm font-medium">Project URL</label>
+                <label className="text-gray-300 block mb-1 text-sm font-medium">Project URL</label>
                 <input
                   type="url"
                   name="project_url"
                   value={formData.project_url}
                   onChange={handleChange}
-                  className="w-full p-3 rounded-lg bg-[#5E4A77] text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  className="w-full p-3 rounded-lg bg-[#3E3E55] text-white focus:outline-none focus:ring-2 focus:ring-gray-400"
                   placeholder="https://yourproject.com"
                 />
               </div>
               <div>
-                <label className="text-white block mb-1 text-sm font-medium">GitHub URL</label>
+                <label className="text-gray-300 block mb-1 text-sm font-medium">GitHub URL</label>
                 <input
                   type="url"
                   name="github_url"
                   value={formData.github_url}
                   onChange={handleChange}
-                  className="w-full p-3 rounded-lg bg-[#5E4A77] text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  className="w-full p-3 rounded-lg bg-[#3E3E55] text-white focus:outline-none focus:ring-2 focus:ring-gray-400"
                   placeholder="https://github.com/username/repo"
                 />
               </div>
             </div>
 
+            {/* Duration & Role */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-white block mb-1 text-sm font-medium">Duration</label>
+                <label className="text-gray-300 block mb-1 text-sm font-medium">Duration</label>
                 <input
                   type="text"
                   name="duration"
                   value={formData.duration}
                   onChange={handleChange}
-                  className="w-full p-3 rounded-lg bg-[#5E4A77] text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  className="w-full p-3 rounded-lg bg-[#3E3E55] text-white focus:outline-none focus:ring-2 focus:ring-gray-400"
                   placeholder="e.g., 3 months, 6 weeks"
                 />
               </div>
               <div>
-                <label className="text-white block mb-1 text-sm font-medium">Your Role</label>
+                <label className="text-gray-300 block mb-1 text-sm font-medium">Your Role</label>
                 <input
                   type="text"
                   name="role"
                   value={formData.role}
                   onChange={handleChange}
-                  className="w-full p-3 rounded-lg bg-[#5E4A77] text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  className="w-full p-3 rounded-lg bg-[#3E3E55] text-white focus:outline-none focus:ring-2 focus:ring-gray-400"
                   placeholder="e.g., Full-stack Developer, Frontend Developer"
                 />
               </div>
             </div>
 
+            {/* Actions */}
             <div className="flex gap-3 pt-4">
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 bg-[#5E4A77] hover:bg-purple-700 disabled:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
+                className="flex-1 bg-[#3E3E55] hover:bg-[#3E3E55]/80 disabled:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
               >
                 {loading ? 'Adding...' : 'Add Project'}
               </button>
@@ -189,6 +197,7 @@ const AddProject = ({ userId, onProjectAdded, onClose }) => {
                 Cancel
               </button>
             </div>
+
           </form>
         </div>
       </div>

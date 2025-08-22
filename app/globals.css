@@ -54,3 +54,27 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
+
+/* Font Classes */
+.museo-moderno {
+  font-family: var(--font-museo-moderno);
+}
+
+h1,h2,h3{
+  font-family: var(--font-lexend-exa);
+}
+button{
+  font-family: var(--font-museo-moderno);
+}
+
+p{
+  font-family: var(--font-lexend-mega)
+}
+
+.lexend-mega {
+  font-family: var(--font-lexend-mega);
+}
+
+.lexend-exa {
+  font-family: var(--font-lexend-exa);
+}

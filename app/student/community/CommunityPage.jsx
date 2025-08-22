@@ -20,8 +20,8 @@ const CommunityPage = ({ user }) => {
 
   useEffect(() => {
     fetchPosts();
-  
-    // Realtime subscription using the new API
+
+    // Realtime subscription
     const channel = supabase
       .channel("public:community_posts")
       .on(
@@ -32,12 +32,11 @@ const CommunityPage = ({ user }) => {
         }
       )
       .subscribe();
-  
+
     return () => {
-      supabase.removeChannel(channel); // cleanup
+      supabase.removeChannel(channel);
     };
   }, []);
-  
 
   // Handle post submission
   const handlePost = async () => {
@@ -53,11 +52,11 @@ const CommunityPage = ({ user }) => {
 
       if (uploadError) return toast.error("Image upload failed.");
 
-      const { publicUrl } = supabase.storage
+      const { data } = supabase.storage
         .from("community-images")
         .getPublicUrl(fileName);
 
-      imageUrl = publicUrl;
+      imageUrl = data.publicUrl;
     }
 
     const { error } = await supabase.from("community_posts").insert([
@@ -79,9 +78,10 @@ const CommunityPage = ({ user }) => {
   return (
     <div className="max-w-3xl mx-auto p-4">
       {/* Post Input */}
-      <div className="bg-[#1B1B2F] p-4 rounded-lg mb-6">
+      <div className="bg-purple-950 border border-purple-800 p-4 rounded-xl shadow-md mb-6">
         <textarea
-          className="w-full p-3 rounded-lg bg-[#2A2A40] text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+          className="w-full p-3 rounded-lg bg-[#3E3E55] text-white placeholder-gray-400 
+                     focus:outline-none focus:ring-2 focus:ring-gray-500"
           placeholder="What's on your mind?"
           value={content}
           onChange={(e) => setContent(e.target.value)}
@@ -91,25 +91,47 @@ const CommunityPage = ({ user }) => {
           type="file"
           accept="image/*"
           onChange={(e) => setImage(e.target.files[0])}
-          className="mt-2 text-sm text-white"
+          className="mt-2 text-sm text-gray-300"
         />
-        <button
-          onClick={handlePost}
-          className="mt-2 bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg"
-        >
-          Post
-        </button>
+        <div className="flex gap-3 mt-3">
+          <button
+            onClick={handlePost}
+            className="bg-[#3E3E55] hover:bg-[#505070] text-white font-semibold 
+                       px-4 py-2 rounded-lg transition-colors duration-200"
+          >
+            Post
+          </button>
+          <button
+            onClick={() => {
+              setContent("");
+              setImage(null);
+            }}
+            className="px-4 py-2 border border-gray-600 text-gray-300 hover:text-white 
+                       hover:border-white rounded-lg transition-colors duration-200"
+          >
+            Clear
+          </button>
+        </div>
       </div>
 
       {/* Posts Feed */}
       <div className="space-y-4">
         {posts.map((post) => (
-          <div key={post.id} className="bg-[#1B1B2F] p-4 rounded-lg border border-gray-700">
+          <div
+            key={post.id}
+            className="bg-purple-950 border border-purple-800 p-4 rounded-xl shadow-sm"
+          >
             {post.image_url && (
-              <img src={post.image_url} alt="" className="w-full h-auto rounded-lg mb-2" />
+              <img
+                src={post.image_url}
+                alt=""
+                className="w-full h-auto rounded-lg mb-3"
+              />
             )}
             <p className="text-white">{post.content}</p>
-            <p className="text-gray-400 text-sm mt-1">{new Date(post.created_at).toLocaleString()}</p>
+            <p className="text-gray-400 text-xs mt-2">
+              {new Date(post.created_at).toLocaleString()}
+            </p>
           </div>
         ))}
       </div>

@@ -4,7 +4,6 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import Login from '@/component/Login'
-import Hero from '@/component/Hero'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -35,8 +34,8 @@ export default function LoginPage() {
   }, [router])
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-900">
-      <Hero/>
+    <div>
+      <Login/>
     </div>
   )
 }

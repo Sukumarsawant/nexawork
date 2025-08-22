@@ -1,0 +1,56 @@
+John Doe
+Email: john.doe@example.com
+ | Phone: +1 555-123-4567
+Location: San Francisco, CA
+LinkedIn: linkedin.com/in/johndoe | GitHub: github.com/johndoe
+
+Professional Summary
+
+Results-driven software engineer with 4+ years of experience in full-stack development. Skilled in building scalable web applications, optimizing performance, and implementing clean code practices. Passionate about AI and cloud technologies.
+
+Skills
+
+Programming: JavaScript, Python, TypeScript
+
+Frameworks: React, Node.js, Express, Next.js
+
+Database: MySQL, MongoDB, PostgreSQL
+
+Cloud & DevOps: AWS, Docker, CI/CD
+
+Tools: Git, Jira, VS Code
+
+Experience
+
+Software Engineer | Tech Solutions Inc. | Jan 2021 – Present
+
+Developed and maintained web applications using React and Node.js
+
+Integrated third-party APIs and optimized backend performance
+
+Collaborated with cross-functional teams to deliver projects on time
+
+Junior Developer | WebWorks Co. | Jun 2019 – Dec 2020
+
+Assisted in building e-commerce platforms using Next.js
+
+Wrote automated tests and improved code quality
+
+Participated in code reviews and sprint planning
+
+Education
+
+Bachelor of Science in Computer Science
+University of California, Berkeley | 2015 – 2019
+
+Projects
+
+JobFinder App: Full-stack application for job search and application tracking using React, Node.js, and Supabase.
+
+ChatBot AI: Built an AI-powered chatbot using Python and OpenAI GPT APIs.
+
+Certifications
+
+AWS Certified Developer – Associate
+
+Certified React Developer
