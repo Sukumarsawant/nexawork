@@ -41,7 +41,7 @@ const Login = () => {
 
           if (profileError) throw profileError
 
-          alert('✅ Sign up successful! Please check your email to confirm.')
+          alert('Sign up successful!!🎉🎉 Please check your email to confirm.')
           setForm({ email: '', password: '', role: 'student' })
         }
       } else {
