@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -10,14 +11,14 @@ const BusinessNavbar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           {/* Logo */}
-          <Link href="/business" className="text-2xl font-bold text-purple-500">
-            BizPortal
+          <Link href="/business/dashboard" className="text-2xl font-bold text-purple-500">
+          <Image src={'/Logo.png'} width={150} height={150}/>
           </Link>
 
           {/* Desktop Menu */}
           <div className="hidden md:flex space-x-6 items-center">
-            <Link href="/business" className="hover:text-purple-400">
-              Home
+            <Link href="/business/dashboard" className="hover:text-purple-400">
+            Home
             </Link>
             <Link href="/business/browse-students" className="hover:text-purple-400">
               Browse Students
@@ -25,7 +26,7 @@ const BusinessNavbar = () => {
             <Link href="/business/post-job" className="hover:text-purple-400">
               Post Job
             </Link>
-            <Link href="/business/profile" className="hover:text-purple-400">
+            <Link href="/student/profile" className="hover:text-purple-400">
               Profile
             </Link>
           </div>

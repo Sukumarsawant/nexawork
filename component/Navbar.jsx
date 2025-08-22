@@ -14,7 +14,7 @@ const StudentNavbar = () => {
           {/* Logo */}
           <div className="flex-shrink-0">
             <Link href="/student/dashboard" className="text-2xl font-bold text-purple-400">
-             <Image src={'/Logo.png'} width={150} height={150} />
+             <Image src={'/Logo.png'} width={150} height={150} alt="logo"/>
             </Link>
           </div>
 
