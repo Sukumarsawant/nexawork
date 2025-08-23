@@ -63,14 +63,10 @@ const Login = () => {
 
   return (
     <>
-      <div className="bg-[#3E3E55B2] flex items-center justify-between font-bold text-white/80 text-xl p-3 px-6 rounded-4xl gap-3 max-w-md">
-        {['Personal', 'Roles', 'Confirmation'].map((item, i) => (
-          <h3 key={i}>{item}</h3>
-        ))}
-      </div>
+      
 
       <div className="max-w-md mx-auto bg-[#3E3E55B2] mt-16 p-8 rounded-xl shadow-lg font-sans">
-        <h2 className="text-3xl font-bold text-center mb-8 text-gray-800">
+        <h2 className="text-3xl font-bold text-center mb-8 text-white">
           {isSignUp ? 'Create Account' : 'Welcome Back'}
         </h2>
 
@@ -84,7 +80,7 @@ const Login = () => {
               onChange={handleChange}
               placeholder="you@example.com"
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              className="w-full px-4 py-2 bg-[#0E0E12]/70 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             />
           </div>
 
@@ -97,7 +93,7 @@ const Login = () => {
               onChange={handleChange}
               placeholder="••••••••"
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              className="w-full px-4 py-2 bg-[#0E0E12]/70 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             />
           </div>
 
@@ -123,7 +119,7 @@ const Login = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-blue-600 text-white rounded-md font-bold text-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
+            className="w-full py-3 bg-[#5E4A77] text-white rounded-md font-bold text-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? 'Processing...' : isSignUp ? 'Sign Up' : 'Sign In'}
           </button>
@@ -149,7 +145,7 @@ const Login = () => {
               Don&apos;t have an account?{' '}
               <button
                 type="button"
-                className="text-blue-600 hover:underline font-semibold"
+                className="text-blue-600  hover:underline font-semibold"
                 onClick={() => {
                   setIsSignUp(true)
                   setError(null)
