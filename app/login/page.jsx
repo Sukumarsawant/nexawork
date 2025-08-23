@@ -34,7 +34,7 @@ export default function LoginPage() {
   }, [router])
 
   return (
-    <div>
+    <div className='bg-[#0E0E12] h-screen w-full absolute top-0 left-0'>
       <Login/>
     </div>
   )
