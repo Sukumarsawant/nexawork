@@ -81,7 +81,18 @@ export default function HomePage() {
           .select('*')
           .eq('id', user.id)
           .single();
-        setProfile(profileData);
+        
+        // Fetch projects count
+        const { count: projectsCount } = await supabase
+          .from('projects')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+        
+        // Combine profile data with projects count
+        setProfile({
+          ...profileData,
+          projects_count: projectsCount || 0
+        });
       }
     } catch (error) {
       console.error("Error loading user:", error);
@@ -278,39 +289,79 @@ export default function HomePage() {
         </div>
       </div>
 
+      {/* Mobile Profile Card */}
+      <div className="lg:hidden px-4 py-3">
+        <div 
+          className="bg-[#3E3E55]/50 rounded-xl shadow-sm border border-[#3E3E55] overflow-hidden cursor-pointer hover:bg-[#3E3E55]/70 transition-all duration-200 p-4"
+          onClick={handleProfileClick}
+        >
+          <div className="flex items-center space-x-4">
+            <div className={`w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center border-4 border-purple-950 ${loading ? 'animate-pulse' : ''}`}>
+              <span className="text-white text-xl font-bold">
+                {(profile?.full_name || profile?.name) ? (profile.full_name || profile.name).charAt(0).toUpperCase() : (loading ? '...' : 'U')}
+              </span>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="text-lg font-semibold text-white">
+                  {profile?.full_name || profile?.name || (loading ? 'Loading...' : 'User')}
+                </h3>
+                {profile && <CheckCircle className="w-4 h-4 text-purple-400" />}
+              </div>
+              <p className="text-gray-300 text-sm">
+                {profile?.tagline || profile?.about || (loading ? 'Loading...' : 'Student')}
+                {profile?.institution && ` at ${profile.institution}`}
+              </p>
+              <p className="text-gray-400 text-xs">
+                {profile?.location || (loading ? 'Loading...' : 'Location not set')}
+              </p>
+            </div>
+            <ArrowRight className="w-5 h-5 text-purple-400" />
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-[250px_1fr_250px] xl:grid-cols-[300px_1fr_300px] gap-4 lg:gap-6 max-w-7xl mx-auto px-4 py-6">
 
         {/* Left Sidebar - Fixed */}
         <div className="hidden lg:block">
           <div className="sticky top-6 space-y-6">
             {/* Profile Card */}
-            <div className="bg-[#3E3E55]/50 rounded-xl shadow-sm border border-[#3E3E55] overflow-hidden">
+            <div 
+              className="bg-[#3E3E55]/50 rounded-xl shadow-sm border border-[#3E3E55] overflow-hidden cursor-pointer hover:bg-[#3E3E55]/70 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] group"
+              onClick={handleProfileClick}
+            >
               {/* Cover Photo */}
-              <div className="h-20 bg-[#000]/40"></div>
+              <div className="h-20 bg-gradient-to-r from-purple-600 to-blue-600 relative">
+                <div className="absolute inset-0 bg-black/20"></div>
+                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <ArrowRight className="w-4 h-4 text-white" />
+                </div>
+              </div>
               
               {/* Profile Info */}
               <div className="relative px-6 pb-6">
                 <div className="flex justify-center -mt-8 mb-4">
-                  <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center border-4 border-purple-950">
+                  <div className={`w-20 h-20 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center border-4 border-purple-950 group-hover:border-purple-400 transition-colors duration-200 ${loading ? 'animate-pulse' : ''}`}>
                     <span className="text-white text-2xl font-bold">
-                      {(profile?.full_name || profile?.name) ? (profile.full_name || profile.name).charAt(0).toUpperCase() : 'U'}
+                      {(profile?.full_name || profile?.name) ? (profile.full_name || profile.name).charAt(0).toUpperCase() : (loading ? '...' : 'U')}
                     </span>
                   </div>
                 </div>
                 
                 <div className="text-center mb-4">
                   <div className="flex items-center justify-center gap-2 mb-1">
-                    <h2 className="text-lg font-semibold text-white">
-                    {profile?.full_name || profile?.name || 'Loading...'}
-                  </h2>
-                    <CheckCircle className="w-5 h-5 text-purple-400" />
+                    <h2 className="text-lg font-semibold text-white group-hover:text-purple-300 transition-colors duration-200">
+                      {profile?.full_name || profile?.name || (loading ? 'Loading...' : 'User')}
+                    </h2>
+                    {profile && <CheckCircle className="w-5 h-5 text-purple-400" />}
                   </div>
                   <p className="text-gray-300 text-sm">
-                    {profile?.tagline || profile?.about || 'Student'}
+                    {profile?.tagline || profile?.about || (loading ? 'Loading...' : 'Student')}
                     {profile?.institution && ` at ${profile.institution}`}
                   </p>
                   <p className="text-gray-400 text-sm">
-                    {profile?.location || 'Location not set'}
+                    {profile?.location || (loading ? 'Loading...' : 'Location not set')}
                   </p>
                 </div>
 
@@ -324,18 +375,53 @@ export default function HomePage() {
                   </div>
                 )}
 
+                {/* Skills Preview */}
+                {profile?.skills && profile.skills.length > 0 && (
+                  <div className="border-t border-[#3E3E55] pt-4 mb-4">
+                    <div className="text-center">
+                      <p className="text-xs text-gray-400 mb-2">Top Skills</p>
+                      <div className="flex flex-wrap justify-center gap-1">
+                        {profile.skills.slice(0, 3).map((skill, index) => (
+                          <span 
+                            key={index} 
+                            className="px-2 py-1 bg-purple-600/20 text-purple-300 text-xs rounded-full border border-purple-600/30"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                        {profile.skills.length > 3 && (
+                          <span className="px-2 py-1 bg-gray-600/20 text-gray-300 text-xs rounded-full border border-gray-600/30">
+                            +{profile.skills.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Stats */}
                 <div className="border-t border-[#3E3E55] pt-4">
                   <div className="grid grid-cols-2 gap-4 text-center">
                     <div>
                       <p className="text-sm text-gray-400">Profile views</p>
-                      <p className="text-lg font-semibold text-white">245</p>
+                      <p className="text-lg font-semibold text-white group-hover:text-purple-300 transition-colors duration-200">
+                        {profile?.profile_views || (loading ? '...' : '0')}
+                      </p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-400">Post impressions</p>
-                      <p className="text-lg font-semibold text-white">1,234</p>
+                      <p className="text-sm text-gray-400">Projects</p>
+                      <p className="text-lg font-semibold text-white group-hover:text-purple-300 transition-colors duration-200">
+                        {profile?.projects_count || (loading ? '...' : '0')}
+                      </p>
                     </div>
                   </div>
+                </div>
+
+                {/* Click to view profile hint */}
+                <div className="mt-4 text-center">
+                  <p className="text-xs text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    Click to view full profile
+                  </p>
                 </div>
               </div>
             </div>
