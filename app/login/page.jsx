@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import Login from '@/component/Login'
+import Login from '../component/Login'
 
 export default function LoginPage() {
   const router = useRouter()

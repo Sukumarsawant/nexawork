@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { 
   Bell, 
   Search, 
@@ -40,14 +41,17 @@ import {
   Calendar as CalendarIcon,
   ChevronDown,
   Globe,
-  Send
+  Send,
+  ArrowRight
 } from 'lucide-react'
 import LogoutButton from '@/component/LogOutButton'
 import { supabase } from '@/lib/supabaseClient'
 import ResumeUpload from '@/component/ResumeUpload'
 
 export default function HomePage() {
+  const router = useRouter();
   const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
   const [blogs, setBlogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -69,6 +73,16 @@ export default function HomePage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+      
+      if (user) {
+        // Fetch user profile data
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        setProfile(profileData);
+      }
     } catch (error) {
       console.error("Error loading user:", error);
     }
@@ -144,7 +158,7 @@ export default function HomePage() {
         id: 1,
         user_name: "Samudra J.",
         user_avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
-        content: "What an unforgettable day at Razorpreneur 3.0 hosted at Vidyalankar Institute of Technology, Mumbai! As the General Secretary of the Student Council, I had the privilege of organizing this incredible event that brought together aspiring entrepreneurs and industry leaders. The energy was electric as we explored the future of entrepreneurship and innovation. Special thanks to all the speakers, participants, and our amazing team who made this possible. Here's to building the next generation of business leaders! 🚀 #Razorpreneur #Entrepreneurship #Innovation #VITMumbai",
+        content: "What an unforgettable day at Razorpreneur 3.0! As the General Secretary of the Student Council, I had the privilege of organizing this incredible event that brought together aspiring entrepreneurs and industry leaders. The energy was electric as we explored the future of entrepreneurship and innovation. Special thanks to all the speakers, participants, and our amazing team who made this possible. Here's to building the next generation of business leaders! 🚀 #Razorpreneur #Entrepreneurship #Innovation",
         image_url: "https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=600&h=400&fit=crop",
         created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
         likes: 89,
@@ -243,6 +257,10 @@ export default function HomePage() {
     return readers.toString();
   };
 
+  const handleProfileClick = () => {
+    router.push('/student/profile');
+  };
+
   return (
     <div className="min-h-screen bg-[#0E0E12]">
       {/* Mobile Header */}
@@ -274,26 +292,37 @@ export default function HomePage() {
               <div className="relative px-6 pb-6">
                 <div className="flex justify-center -mt-8 mb-4">
                   <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center border-4 border-purple-950">
-                    <span className="text-white text-2xl font-bold">R</span>
+                    <span className="text-white text-2xl font-bold">
+                      {(profile?.full_name || profile?.name) ? (profile.full_name || profile.name).charAt(0).toUpperCase() : 'U'}
+                    </span>
                   </div>
                 </div>
                 
                 <div className="text-center mb-4">
                   <div className="flex items-center justify-center gap-2 mb-1">
-                    <h2 className="text-lg font-semibold text-white">Rohit Soneji</h2>
+                    <h2 className="text-lg font-semibold text-white">
+                    {profile?.full_name || profile?.name || 'Loading...'}
+                  </h2>
                     <CheckCircle className="w-5 h-5 text-purple-400" />
                   </div>
-                  <p className="text-gray-300 text-sm">Student at Vidyalankar Institute of Technology, Mumbai</p>
-                  <p className="text-gray-400 text-sm">Mumbai, Maharashtra</p>
+                  <p className="text-gray-300 text-sm">
+                    {profile?.tagline || profile?.about || 'Student'}
+                    {profile?.institution && ` at ${profile.institution}`}
+                  </p>
+                  <p className="text-gray-400 text-sm">
+                    {profile?.location || 'Location not set'}
+                  </p>
                 </div>
 
                 {/* Institution */}
-                <div className="border-t border-[#3E3E55] pt-4 mb-4">
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-6 h-6 bg-[#3E3E55] rounded"></div>
-                    <span className="text-sm font-medium text-white">Vidyalankar Institute of Technology, Mumbai</span>
+                {profile?.institution && (
+                  <div className="border-t border-[#3E3E55] pt-4 mb-4">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-6 h-6 bg-[#3E3E55] rounded"></div>
+                      <span className="text-sm font-medium text-white">{profile.institution}</span>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Stats */}
                 <div className="border-t border-[#3E3E55] pt-4">
@@ -350,7 +379,9 @@ export default function HomePage() {
           <div className="bg-[#3E3E55]/50 rounded-xl shadow-sm border border-[#3E3E55]/60 p-6">
             <div className="flex items-start space-x-4">
               <div className="w-10 h-10 bg-[#3E3E55] rounded-full flex items-center justify-center flex-shrink-0">
-                <span className="text-white font-bold">R</span>
+                <span className="text-white font-bold">
+                  {(profile?.full_name || profile?.name) ? (profile.full_name || profile.name).charAt(0).toUpperCase() : 'U'}
+                </span>
               </div>
               <div className="flex-1">
                 <button className="w-full text-left px-4 py-3 bg-[#3E3E55]/50 rounded-xl text-gray-300 transition-colors">

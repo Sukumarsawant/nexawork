@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { supabase } from '../../lib/supabaseClient'
 
 const Login = () => {
   const [form, setForm] = useState({ email: '', password: '', role: 'student' })
