@@ -1,1 +1,1 @@
-website link : https://www.nexawork.netlify.app
+website link : http://www.nexawork.netlify.app
