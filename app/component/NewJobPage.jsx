@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useAuth, withTimeout } from "@/component/AuthProvider";
+import { newJobPayload } from "@/lib/jobs";
 
 export default function NewJobPage() {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     title: "",
     location: "",
@@ -47,12 +50,13 @@ export default function NewJobPage() {
     setMessage("");
 
     try {
-      const { error } = await supabase.from("jobs").insert([formData]);
+      const payload = newJobPayload(formData, user?.id);
+      const { error } = await withTimeout(supabase.from("jobs").insert([payload]));
 
       if (error) {
-        setMessage("❌ Error: " + error.message);
+        setMessage("We could not save this job. Your draft remains here. Please retry.");
       } else {
-        setMessage("✅ Job added successfully!");
+        setMessage("Job added successfully.");
         setFormData({
           title: "",
           location: "",
@@ -77,66 +81,62 @@ export default function NewJobPage() {
         });
       }
     } catch (error) {
-      setMessage("❌ Unexpected error occurred");
+      setMessage(error.message || "We could not save this job. Please retry.");
     }
-    
+
     setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 py-8 px-4">
+    <div className="min-h-screen bg-[var(--nx-bg)] py-8 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">Create New Job Posting</h1>
-          <p className="text-gray-600">Fill in the details below to create a new job opportunity</p>
+          <h1 className="text-4xl font-bold text-[var(--nx-white)] mb-2">Create New Job Posting</h1>
+          <p className="text-[var(--nx-muted)]">Fill in the details below to create a new job opportunity</p>
         </div>
 
         {/* Form Container */}
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-[var(--nx-card)] border border-[var(--nx-line)] rounded-xl p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Basic Job Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Job Title *
-                </label>
-                <input
+                <label htmlFor="job-title" className="block text-sm font-semibold text-[var(--nx-text)] mb-2">Job Title *</label>
+                <input id="job-title"
                   type="text"
                   name="title"
                   value={formData.title}
                   onChange={handleChange}
                   required
                   placeholder="e.g., Senior Frontend Developer"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                  className="nx-field"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Location
-                </label>
-                <input
+                <label htmlFor="job-location" className="block text-sm font-semibold text-[var(--nx-text)] mb-2">Location</label>
+                <input id="job-location"
                   type="text"
                   name="location"
                   value={formData.location}
                   onChange={handleChange}
                   placeholder="e.g., New York, NY"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                  className="nx-field"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Salary
-                </label>
-                <input
-                  type="text"
+                <label htmlFor="job-salary" className="block text-sm font-semibold text-[var(--nx-text)] mb-2">Salary</label>
+                <input id="job-salary"
+                  type="number"
+                  min="0"
+                  step="0.01"
                   name="salary"
                   value={formData.salary}
                   onChange={handleChange}
-                  placeholder="e.g., $80,000 - $120,000"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                  placeholder="Optional recorded amount"
+                  className="nx-field"
                 />
               </div>
             </div>
@@ -144,14 +144,12 @@ export default function NewJobPage() {
             {/* Job Details */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Employment Type
-                </label>
-                <select
+                <label htmlFor="job-employment_type" className="block text-sm font-semibold text-[var(--nx-text)] mb-2">Employment Type</label>
+                <select id="job-employment_type"
                   name="employment_type"
                   value={formData.employment_type}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                  className="nx-field"
                 >
                   <option value="">Select type</option>
                   {employmentTypes.map((type) => (
@@ -161,14 +159,12 @@ export default function NewJobPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Seniority Level
-                </label>
-                <select
+                <label htmlFor="job-seniority_level" className="block text-sm font-semibold text-[var(--nx-text)] mb-2">Seniority Level</label>
+                <select id="job-seniority_level"
                   name="seniority_level"
                   value={formData.seniority_level}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                  className="nx-field"
                 >
                   <option value="">Select level</option>
                   {seniorityLevels.map((level) => (
@@ -178,14 +174,12 @@ export default function NewJobPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Job Function
-                </label>
-                <select
+                <label htmlFor="job-job_function" className="block text-sm font-semibold text-[var(--nx-text)] mb-2">Job Function</label>
+                <select id="job-job_function"
                   name="job_function"
                   value={formData.job_function}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                  className="nx-field"
                 >
                   <option value="">Select function</option>
                   {jobFunctions.map((func) => (
@@ -198,91 +192,79 @@ export default function NewJobPage() {
             {/* Company Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Company Name
-                </label>
-                <input
+                <label htmlFor="job-company_name" className="block text-sm font-semibold text-[var(--nx-text)] mb-2">Company Name</label>
+                <input id="job-company_name"
                   type="text"
                   name="company_name"
                   value={formData.company_name}
                   onChange={handleChange}
                   placeholder="e.g., TechCorp Inc."
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                  className="nx-field"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Company URL
-                </label>
-                <input
+                <label htmlFor="job-company_url" className="block text-sm font-semibold text-[var(--nx-text)] mb-2">Company URL</label>
+                <input id="job-company_url"
                   type="url"
                   name="company_url"
                   value={formData.company_url}
                   onChange={handleChange}
                   placeholder="https://company.com"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                  className="nx-field"
                 />
               </div>
             </div>
 
             {/* Job Description */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Job Description
-              </label>
-              <textarea
+              <label htmlFor="job-description" className="block text-sm font-semibold text-[var(--nx-text)] mb-2">Job Description</label>
+                <textarea id="job-description"
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
                 rows={6}
                 placeholder="Describe the role, responsibilities, and requirements..."
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 resize-vertical"
+                className="nx-field resize-vertical"
               />
             </div>
 
             {/* Benefits */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Benefits & Perks
-              </label>
-              <textarea
+              <label htmlFor="job-sbenefits" className="block text-sm font-semibold text-[var(--nx-text)] mb-2">Benefits & Perks</label>
+                <textarea id="job-sbenefits"
                 name="sbenefits"
                 value={formData.sbenefits}
                 onChange={handleChange}
                 rows={3}
                 placeholder="List the benefits and perks offered..."
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 resize-vertical"
+                className="nx-field resize-vertical"
               />
             </div>
 
             {/* URLs and Additional Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Job URL
-                </label>
-                <input
+                <label htmlFor="job-job_url" className="block text-sm font-semibold text-[var(--nx-text)] mb-2">Job URL</label>
+                <input id="job-job_url"
                   type="url"
                   name="job_url"
                   value={formData.job_url}
                   onChange={handleChange}
                   placeholder="https://job-posting-url.com"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                  className="nx-field"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Apply URL
-                </label>
-                <input
+                <label htmlFor="job-apply_url" className="block text-sm font-semibold text-[var(--nx-text)] mb-2">Apply URL</label>
+                <input id="job-apply_url"
                   type="url"
                   name="apply_url"
                   value={formData.apply_url}
                   onChange={handleChange}
                   placeholder="https://apply-url.com"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                  className="nx-field"
                 />
               </div>
             </div>
@@ -290,75 +272,17 @@ export default function NewJobPage() {
             {/* Additional Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Industry/Sector
-                </label>
-                <input
+                <label htmlFor="job-industries_sector" className="block text-sm font-semibold text-[var(--nx-text)] mb-2">Industry/Sector</label>
+                <input id="job-industries_sector"
                   type="text"
                   name="industries_sector"
                   value={formData.industries_sector}
                   onChange={handleChange}
                   placeholder="e.g., Technology, Healthcare"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                  className="nx-field"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Posted By
-                </label>
-                <input
-                  type="text"
-                  name="posted_by"
-                  value={formData.posted_by}
-                  onChange={handleChange}
-                  placeholder="Recruiter name"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-                />
-              </div>
-            </div>
-
-            {/* Hidden/System Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Posted Time
-                </label>
-                <input
-                  type="datetime-local"
-                  name="posted_time"
-                  value={formData.posted_time}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Published At
-                </label>
-                <input
-                  type="datetime-local"
-                  name="published_at"
-                  value={formData.published_at}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Applications Count
-                </label>
-                <input
-                  type="number"
-                  name="applications_count"
-                  value={formData.applications_count}
-                  onChange={handleChange}
-                  placeholder="0"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-                />
-              </div>
             </div>
 
             {/* Submit Button */}
@@ -366,7 +290,7 @@ export default function NewJobPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-4 rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all duration-200 font-semibold text-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="nx-button-primary"
               >
                 {loading ? (
                   <>
@@ -382,9 +306,9 @@ export default function NewJobPage() {
 
           {/* Message Display */}
           {message && (
-            <div className={`mt-6 p-4 rounded-lg text-center font-medium ${
-              message.includes("✅") 
-                ? "bg-green-100 text-green-800 border border-green-200" 
+            <div role={message === "Job added successfully." ? "status" : "alert"} className={`mt-6 p-4 rounded-lg text-center font-medium ${
+              message === "Job added successfully."
+                ? "bg-green-100 text-green-800 border border-green-200"
                 : "bg-red-100 text-red-800 border border-red-200"
             }`}>
               {message}

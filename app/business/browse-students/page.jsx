@@ -1,9 +1,14 @@
 "use client"
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useAuth, withTimeout } from "@/component/AuthProvider";
+import { safeWebUrl } from "@/lib/profile";
 import { Search, MessageCircle, Users, Filter, Star, MapPin, Calendar, Mail, Phone, Globe, Github, Linkedin, User, X, SlidersHorizontal, Briefcase, Award, Clock } from "lucide-react";
 
-const CommunityPage = ({ user }) => {
+const CommunityPage = () => {
+  const { user } = useAuth();
+  const [loadError, setLoadError] = useState("");
+  const [revision, setRevision] = useState(0);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -18,26 +23,20 @@ const CommunityPage = ({ user }) => {
   const availabilityOptions = ["Available", "Part-time", "Freelance", "Open to opportunities", "Not available"];
 
   useEffect(() => {
-    loadStudents();
-  }, []);
-
-  const loadStudents = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("role", "student")
-        .neq("id", user.id) // Exclude current user
-        .order("name");
-
-      if (error) throw error;
-      setStudents(data || []);
-    } catch (error) {
-      console.error("Error loading students:", error);
-    } finally {
-      setLoading(false);
+    let active = true;
+    async function loadStudents() {
+      setLoading(true); setLoadError("");
+      try {
+        const { data, error } = await withTimeout(supabase.rpc('browse_students', { page_size: 100 }));
+        if (error) throw error;
+        if (active) setStudents(data || []);
+      } catch {
+        if (active) setLoadError("We could not load students. Please retry.");
+      } finally { if (active) setLoading(false); }
     }
-  };
+    if (user) void loadStudents();
+    return () => { active = false; };
+  }, [user, revision]);
 
   const filteredStudents = students.filter(student => {
     const matchesSearch = student.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -53,7 +52,7 @@ const CommunityPage = ({ user }) => {
       student.location?.toLowerCase().includes(selectedLocation.toLowerCase());
 
     const matchesAvailability = !selectedAvailability || 
-      student.availability?.toLowerCase().includes(selectedAvailability.toLowerCase());
+      student.availability_status?.toLowerCase().includes(selectedAvailability.toLowerCase());
 
     return matchesSearch && matchesSkills && matchesLocation && matchesAvailability;
   });
@@ -83,10 +82,10 @@ const CommunityPage = ({ user }) => {
     const links = portfolioLinks;
     const pairs = [];
     Object.entries(links).forEach(([key, value]) => {
-      if (typeof value === "string" && value) pairs.push({ label: key, href: value });
+      if (typeof value === "string" && safeWebUrl(value)) pairs.push({ label: key, href: value });
       if (Array.isArray(value)) {
         value.forEach((v, idx) => {
-          if (typeof v === "string" && v) pairs.push({ label: `${key} ${idx + 1}`, href: v });
+          if (typeof v === "string" && safeWebUrl(v)) pairs.push({ label: `${key} ${idx + 1}`, href: v });
         });
       }
     });
@@ -103,6 +102,8 @@ const CommunityPage = ({ user }) => {
       default: return "bg-gray-100 text-gray-800";
     }
   };
+
+  if (loadError) return <main className="p-8"><p role="alert">{loadError}</p><button className="nx-button-primary" onClick={() => setRevision(value => value + 1)}>Retry</button></main>;
 
   if (loading) {
     return (
@@ -130,7 +131,7 @@ const CommunityPage = ({ user }) => {
             <div className="flex items-center justify-center gap-4 mt-4">
               <div className="flex items-center bg-purple-100 rounded-lg px-3 py-2">
                 <Users size={20} className="text-purple-600 mr-2" />
-                <span className="text-sm text-purple-700 font-medium">{students.length} students</span>
+                <span className="text-sm text-purple-700 font-medium">{students.length} students shown (up to 100)</span>
               </div>
             </div>
           </div>
@@ -312,10 +313,10 @@ const CommunityPage = ({ user }) => {
                          <span className="text-gray-600 line-clamp-1">{student.location}</span>
                        </div>
                      )}
-                     {student.availability && (
+                     {student.availability_status && (
                        <div className="flex items-center gap-1 flex-1 min-w-0">
                          <Clock className="text-gray-400 flex-shrink-0" size={14} />
-                         <span className="text-gray-600 line-clamp-1">{student.availability}</span>
+                         <span className="text-gray-600 line-clamp-1">{student.availability_status}</span>
                        </div>
                      )}
                    </div>
@@ -345,10 +346,10 @@ const CommunityPage = ({ user }) => {
                    )}
 
                                      {/* Availability Badge */}
-                   {student.availability && (
+                   {student.availability_status && (
                      <div className="mb-4">
-                       <span className={`px-3 py-1 rounded-full text-xs font-medium line-clamp-1 ${getAvailabilityColor(student.availability)}`}>
-                         {student.availability}
+                       <span className={`px-3 py-1 rounded-full text-xs font-medium line-clamp-1 ${getAvailabilityColor(student.availability_status)}`}>
+                         {student.availability_status}
                        </span>
                      </div>
                    )}
@@ -449,10 +450,10 @@ const CommunityPage = ({ user }) => {
                     <span className="text-gray-600">{selectedStudent.location}</span>
                   </div>
                 )}
-                {selectedStudent.availability && (
+                {selectedStudent.availability_status && (
                   <div className="flex items-center gap-2">
                     <Clock className="text-gray-400" size={16} />
-                    <span className="text-gray-600">{selectedStudent.availability}</span>
+                    <span className="text-gray-600">{selectedStudent.availability_status}</span>
                   </div>
                 )}
                 {selectedStudent.email && (

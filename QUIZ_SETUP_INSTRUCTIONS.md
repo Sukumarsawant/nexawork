@@ -1,3 +1,5 @@
+> Historical setup notes. Use the repository README and docs/database.md for the canonical setup. Do not run legacy SQL against a hosted database without review. Practice badges are not independent certification.
+
 # Quiz System Setup Instructions
 
 ## Overview

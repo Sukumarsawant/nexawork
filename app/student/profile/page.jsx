@@ -6,8 +6,14 @@ import ProjectCard from "@/component/ProjectCard";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import Image from "next/image";
+import { useAuth, withTimeout } from "@/component/AuthProvider";
+import { safeWebUrl } from "@/lib/profile";
+import LogoutButton from "@/component/LogOutButton";
 
 const ProfilePage = () => {
+  const { profile: accountProfile, user } = useAuth();
+  const [loadError, setLoadError] = useState("");
+  const [revision, setRevision] = useState(0);
   const [showEdit, setShowEdit] = useState(false);
   const [showAddProject, setShowAddProject] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -31,32 +37,23 @@ const ProfilePage = () => {
   };
 
   useEffect(() => {
+    let alive = true;
     const load = async () => {
-      const { data: authData } = await supabase.auth.getUser();
-      const userId = authData?.user?.id;
-      if (!userId) {
-        setLoading(false);
-        return;
-      }
-      setCurrentUserId(userId);
-
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
-      setProfile(profileData || null);
-
-      const { data: projectsData } = await supabase
-        .from("projects")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
-      setProjects(projectsData || []);
-      setLoading(false);
+      setLoading(true); setLoadError("");
+      try {
+        const userId = user.id;
+        const [profileResult, projectResult] = await Promise.all([
+          withTimeout(supabase.from("profiles").select("*").eq("id", userId).single()),
+          withTimeout(supabase.from("projects").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(100)),
+        ]);
+        if (profileResult.error || projectResult.error) throw new Error("Profile unavailable");
+        if (alive) { setProfile(profileResult.data); setProjects(projectResult.data || []); setCurrentUserId(userId); }
+      } catch { if (alive) setLoadError("We could not load your profile and projects. Please retry."); }
+      finally { if (alive) setLoading(false); }
     };
-    load();
-  }, []);
+    if (user) void load();
+    return () => { alive = false; };
+  }, [revision, user]);
 
   const handleProjectAdded = async () => {
     const { data: projectsData } = await supabase
@@ -82,25 +79,28 @@ const ProfilePage = () => {
     const links = profile.portfolio_links;
     const pairs = [];
     Object.entries(links).forEach(([key, value]) => {
-      if (typeof value === "string" && value) pairs.push({ label: key, href: value });
+      if (typeof value === "string" && safeWebUrl(value)) pairs.push({ label: key, href: value });
       if (Array.isArray(value)) {
         value.forEach((v, idx) => {
-          if (typeof v === "string" && v) pairs.push({ label: `${key} ${idx + 1}`, href: v });
+          if (typeof v === "string" && safeWebUrl(v)) pairs.push({ label: `${key} ${idx + 1}`, href: v });
         });
       }
     });
     return pairs;
   }, [profile]);
 
+  if (loading) return <main className="p-8" role="status">Loading your profile…</main>;
+  if (loadError) return <main className="p-8"><p role="alert">{loadError}</p><button className="nx-button-primary" onClick={() => setRevision(value => value + 1)}>Retry</button></main>;
+
   return (
-    <div className="min-h-screen w-full bg-[#0E0E12] text-white flex justify-center p-4 sm:p-6">
+    <div className="min-h-screen w-full bg-[var(--nx-bg)] text-white flex justify-center p-4 sm:p-6">
       <div className="flex flex-col w-full max-w-7xl gap-6">
 
         {/* Profile Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
           {/* Left Sidebar */}
-          <div className="bg-[#3E3E55]/50 rounded-2xl p-6 flex flex-col items-center md:items-start gap-6">
+          <div className="bg-[var(--nx-card)] rounded-2xl p-6 flex flex-col items-center md:items-start gap-6">
             {/* Profile Image + Name */}
             <div className="flex flex-col items-center md:items-start text-center md:text-left gap-3 w-full">
               <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-500">
@@ -111,16 +111,14 @@ const ProfilePage = () => {
               <h1 className="text-2xl font-bold">{profile?.name || ""}</h1>
               <p className="text-gray-300">{profile?.tagline || profile?.about || ""}</p>
               <div className="flex flex-wrap gap-3 mt-2">
-                <button className="px-4 py-2 bg-[#3E3E55]/70 rounded-xl">Contact</button>
-                <button onClick={() => setShowEdit(true)} className="px-4 py-2 bg-[#3E3E55]/90 rounded-xl">Edit</button>
-                
+
+                <button onClick={() => setShowEdit(true)} className="nx-button-secondary">Edit</button>
+
               </div>
             </div>
             <div className="mt-6">
-                  <Link href="/verification">
-                    <button className="bg-[#3E3E55] text-white px-6 py-2 rounded-lg shadow-md hover:bg-opacity-90">
-                      Get Verified
-                    </button>
+                  <Link href="/verification" className="nx-button-secondary">
+                    Practice skills
                   </Link>
                 </div>
             {/* Social Links */}
@@ -152,7 +150,7 @@ const ProfilePage = () => {
               <h2 className="text-lg font-semibold mb-2">Skills</h2>
               <div className="flex flex-wrap gap-2">
                 {(profile?.skills || []).map(skill => (
-                  <span key={skill} className="px-3 py-1 bg-[#0E0E12]/60 rounded-md text-sm">{skill}</span>
+                  <span key={skill} className="px-3 py-1 bg-[var(--nx-bg)]/60 rounded-md text-sm">{skill}</span>
                 ))}
                 {(!profile?.skills || profile.skills.length === 0) && (
                   <p className="text-sm text-gray-400">No skills added</p>
@@ -175,35 +173,35 @@ const ProfilePage = () => {
             {/* Availability & Rate */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="mt-4">
-    <h3 className="text-lg font-semibold text-white mb-2">Badges Earned</h3>
+    <h3 className="text-lg font-semibold text-white mb-2">Practice badges (not certification)</h3>
     <div className="flex flex-wrap gap-2">
-      {profile?.badges.map((badgeId, index) => {
+      {profile?.badges?.map((badgeId, index) => {
         const badgeInfo = {
           figma: { name: "Figma Design", icon: "🎨", color: "bg-purple-100 text-purple-800",src:"/badgeF.png" },
           nextjs: { name: "Next.js", icon: "⚡", color: "bg-blue-100 text-blue-800",src:"/badgeN.png" }
         };
-        
+
         const badge = badgeInfo[badgeId];
         if (!badge) return null;
-        
+
         return (
           <div
   key={index}
   className="relative inline-flex items-center"
 >
   {/* Badge Image */}
-  <Image 
-    src={badge.src} 
-    width={100} 
-    height={100} 
+  <Image
+    src={badge.src}
+    width={100}
+    height={100}
     alt={badge.name}
     className="cursor-pointer"
   />
 
   {/* Tooltip (Name on Hover) */}
   <span
-    className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-3 py-1 
-               text-sm font-medium text-white bg-gray-800 rounded-md opacity-0 
+    className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-3 py-1
+               text-sm font-medium text-white bg-gray-800 rounded-md opacity-0
                group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
   >
     {badge.name}
@@ -213,7 +211,7 @@ const ProfilePage = () => {
       })}
     </div>
   </div>
-              <div className="bg-[#3E3E55]/50 rounded-2xl p-6 flex flex-col gap-3">
+              <div className="bg-[var(--nx-card)] rounded-2xl p-6 flex flex-col gap-3">
                 {profile?.availability_hours_per_week != null && (
                   <div className="flex items-center gap-2 text-gray-200">
                     ⏱ {profile.availability_hours_per_week} hrs/week
@@ -228,12 +226,12 @@ const ProfilePage = () => {
             </div>
 
             {/* Projects */}
-            <div className="bg-[#3E3E55] rounded-2xl p-6 shadow-xl">
+            <div className="bg-[var(--nx-card)] rounded-2xl p-6 shadow-xl">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold">Projects</h2>
                 <button
                   onClick={() => setShowAddProject(true)}
-                  className="px-4 py-2 bg-[#3E3E55]/70 hover:bg-[#3E3E55]/90 rounded-lg text-sm"
+                  className="px-4 py-2 bg-[var(--nx-raised)] hover:bg-[var(--nx-raised)] rounded-lg text-sm"
                 >
                   + Add Project
                 </button>
@@ -256,7 +254,9 @@ const ProfilePage = () => {
         </div>
       </div>
 
-      {showEdit && <EditProfile onClose={() => setShowEdit(false)} />}
+      <div className="sr-only">Account type: {accountProfile?.role}</div>
+      <LogoutButton />
+      {showEdit && <EditProfile onClose={() => { setShowEdit(false); setRevision(value => value + 1); }} />}
       {showAddProject && (
         <AddProject
           userId={currentUserId}

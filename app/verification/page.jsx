@@ -103,10 +103,10 @@ export default function VerificationPage() {
             <Award className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-5xl font-bold text-gray-800 mb-4">
-            Skill Verification
+            Skill Practice Quizzes
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            Prove your expertise and earn verified badges to showcase your skills to potential employers and clients
+            Practice your skills and save practice badges to your profile. Scores are calculated in your browser and are not independently verified certification.
           </p>
           
           {/* Stats */}
@@ -117,11 +117,11 @@ export default function VerificationPage() {
             </div>
             <div className="flex items-center gap-2 text-gray-600">
               <CheckCircle className="w-5 h-5" />
-              <span>{userBadges.length} Badges Earned</span>
+              <span>{userBadges.length} Practice Badges</span>
             </div>
             <div className="flex items-center gap-2 text-gray-600">
               <Target className="w-5 h-5" />
-              <span>Industry Standard</span>
+              <span>Client-scored practice</span>
             </div>
           </div>
         </div>
@@ -179,7 +179,7 @@ export default function VerificationPage() {
                         <CheckCircle className="w-8 h-8 text-green-600" />
                       </div>
                       <h3 className="text-lg font-semibold text-green-800 mb-2">Quiz Completed!</h3>
-                      <p className="text-green-600 mb-4">You've earned the {quiz.name} badge</p>
+                      <p className="text-green-600 mb-4">You&apos;ve saved the {quiz.name} practice badge</p>
                       <button
                         onClick={() => window.location.href = `/verification/${quiz.id}`}
                         className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors"
