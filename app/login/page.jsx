@@ -2,40 +2,16 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabaseClient'
 import Login from '../component/Login'
+import { useAuth } from '../component/AuthProvider'
+import { AccountState } from '../component/RoleGate'
 
 export default function LoginPage() {
   const router = useRouter()
-
+  const { status, profile } = useAuth()
   useEffect(() => {
-    // Listen for sign in events only
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', session.user.id)
-            .single()
-
-          if (profile?.role === 'business') {
-            router.replace('/business/dashboard')
-          } else {
-            router.replace('/student/dashboard')
-          }
-        }
-      }
-    )
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [router])
-
-  return (
-    <div className='bg-[#0E0E12] h-screen w-full absolute top-0 left-0'>
-      <Login/>
-    </div>
-  )
+    if (status === 'authenticated') router.replace(`/${profile.role}/dashboard`)
+  }, [status, profile, router])
+  if (['loading', 'missing-profile', 'error', 'authenticated'].includes(status)) return <AccountState />
+  return <Login />
 }

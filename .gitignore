@@ -30,6 +30,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# Runtime upload artifacts (resume processing uses a server-only temporary directory)
+/tmp/
+/test.txt
+
 # env files (can opt-in for committing if needed)
 .env*
 
@@ -39,3 +43,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Safe example configuration and local test output
+!.env.example
+/playwright-report/
+/test-results/
+/supabase/.temp/
+/supabase/.branches/
+/scripts/.venv/
+
+/.next-dev/

@@ -1,27 +1,8 @@
-import BusinessNavbar from "@/component/BusinessNavbar";
-import { Geist, Geist_Mono } from "next/font/google";
+import BusinessNavbar from '@/component/BusinessNavbar'
+import RoleGate from '@/component/RoleGate'
 
+export const metadata = { title: 'Business workspace | Nexawork', description: 'Share your work and discover opportunities on Nexawork.' }
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-export const metadata = {
-  title: "Student Portal",
-  description: "Student freelancing platform",
-};
-
-export default function StudentLayout({ children }) {
-  return (
-    <div className="min-h-screen bg-[#0E0E12]">
-      <BusinessNavbar/>
-      {children}
-    </div>
-  );
+export default function BusinessLayout({ children }) {
+  return <RoleGate role="business"><div className="nx-workspace"><a href="#workspace-content" className="nx-skip-link">Skip to content</a><BusinessNavbar /><div id="workspace-content">{children}</div></div></RoleGate>
 }

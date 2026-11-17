@@ -1,192 +1,198 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import fs from "fs/promises";
 import path from "path";
-import { promisify } from "util";
 import { execFile } from "child_process";
+import { promisify } from "util";
+import { generateBoundedContent, getGeminiModel, parseProviderJson } from "@/lib/server/ai";
+import {
+  aiRequestLimiter,
+  authenticateApiRequest,
+  readBoundedBody,
+  safeString,
+} from "@/lib/server/api";
 
-const execFileP = promisify(execFile);
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const execFileAsync = promisify(execFile);
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_MULTIPART_BYTES = MAX_FILE_BYTES + 64 * 1024;
+const MAX_JOB_DESCRIPTION_CHARS = 6_000;
+const MAX_RESUME_TEXT_CHARS = 24_000;
+const PYTHON_TIMEOUT_MS = 10_000;
+const ALLOWED_FILES = {
+  ".txt": ["text/plain"],
+  ".pdf": ["application/pdf"],
+  ".docx": ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+};
 
-export async function POST(req) {
-  try {
-    const formData = await req.formData();
-    const file = formData.get("resume");
-    const jobDescription = formData.get("jobDescription");
+const SKILLS = [
+  "python", "java", "javascript", "typescript", "react", "next.js", "next", "node", "express",
+  "django", "flask", "sql", "postgresql", "mysql", "mongodb", "docker", "kubernetes",
+  "aws", "gcp", "azure", "git", "html", "css", "rest", "graphql", "c++", "c#", "go",
+];
 
-    if (!file || !jobDescription) {
-      return NextResponse.json(
-        { error: "Missing resume or job description" },
-        { status: 400 }
-      );
-    }
+const ROLE_SKILLS = {
+  sde: ["data structures", "algorithms", "java", "python", "c++", "git"],
+  "software engineer": ["data structures", "algorithms", "java", "python", "git"],
+  backend: ["node", "express", "java", "python", "sql", "docker"],
+  frontend: ["javascript", "react", "html", "css", "typescript"],
+  fullstack: ["javascript", "react", "node", "sql", "docker"],
+  devops: ["docker", "kubernetes", "aws", "gcp", "ci/cd"],
+  data: ["python", "sql", "pandas", "numpy", "machine learning"],
+};
 
-    // Try to save the uploaded file to a temporary path and run the Python analyzer if available.
-    // Fallback to the existing Gemini-based text-only flow if Python fails.
-    const tmpDir = path.join(process.cwd(), "tmp");
-    await fs.mkdir(tmpDir, { recursive: true });
-
-    const originalName = file.name || `resume-${Date.now()}`;
-    const ext = path.extname(originalName) || ".txt";
-    const tmpPath = path.join(tmpDir, `${Date.now()}${ext}`);
-
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      await fs.writeFile(tmpPath, buffer);
-
-      // Attempt to run the Python analyzer script included in the repo.
-      const pyScript = path.join(process.cwd(), "scripts", "analyze_resume.py");
-      try {
-        // Try a small chain of possible python executables to account for Windows 'py' launcher
-        const executables = [process.env.PYTHON_PATH, "python", "py"].filter(Boolean);
-        let stdout = null;
-        let lastErr = null;
-        for (const exe of executables) {
-          try {
-            const res = await execFileP(exe, [pyScript, tmpPath], { maxBuffer: 10 * 1024 * 1024 });
-            if (res.stderr) console.error("Python analyzer stderr:", res.stderr.toString());
-            stdout = res.stdout;
-            break;
-          } catch (err) {
-            lastErr = err;
-            // try next executable
-          }
-        }
-
-        if (!stdout) {
-          console.warn("Python analyzer not available (tried executables). Falling back to Gemini.", lastErr && lastErr.message);
-        } else {
-          // Python script prints JSON to stdout
-          let analysis = JSON.parse(stdout);
-
-          // If the Python analyzer didn't return the expected score/found_skills/missing_skills
-          // synthesize them from the job description and detected skills so the frontend gets a 0-100 score.
-          if (typeof analysis.score === "undefined") {
-            const SKILLS = [
-              "python", "java", "javascript", "typescript", "react", "next.js", "next", "node", "express",
-              "django", "flask", "sql", "postgresql", "mysql", "mongodb", "docker", "kubernetes",
-              "aws", "gcp", "azure", "git", "html", "css", "rest", "graphql", "c++", "c#", "go",
-            ];
-
-            const jd = (jobDescription || "").toLowerCase();
-
-            // Role -> skills mapping to cover short job-title inputs like "SDE" or "Frontend"
-            const ROLE_MAP = {
-              sde: ["data structures", "algorithms", "java", "python", "c++", "git"],
-              "software engineer": ["data structures", "algorithms", "java", "python", "git"],
-              backend: ["node", "express", "java", "python", "sql", "docker"],
-              frontend: ["javascript", "react", "html", "css", "typescript"],
-              fullstack: ["javascript", "react", "node", "sql", "docker"],
-              devops: ["docker", "kubernetes", "aws", "gcp", "ci/cd"],
-              data: ["python", "sql", "pandas", "numpy", "machine learning"],
-            };
-
-            // Start with skills explicitly mentioned in the JD
-            let required = SKILLS.filter((s) => jd.includes(s));
-
-            // If the JD looks like a short title (few words) or contains a known role keyword,
-            // expand required skills using ROLE_MAP
-            const jdWords = jd.split(/\s+/).filter(Boolean);
-            for (const [role, skills] of Object.entries(ROLE_MAP)) {
-              if (jd.includes(role) || (jdWords.length <= 3 && jdWords.some(w => w === role))) {
-                for (const sk of skills) {
-                  if (!required.includes(sk)) required.push(sk);
-                }
-              }
-            }
-
-            const detected = (analysis.skills || []).map((s) => String(s).toLowerCase());
-            const found = required.filter((r) => detected.includes(r));
-            const missing = required.filter((r) => !detected.includes(r));
-
-            // Compute a sensible score. If no explicit required skills were found, derive a fallback
-            // score from detected skills so short JDs like "SDE" don't give 0/100.
-            let score;
-            if (required.length > 0) {
-              score = Math.round((found.length / required.length) * 100);
-            } else if ((detected || []).length > 0) {
-              // Give a baseline per detected skill, cap at 90 to leave room for stronger matches.
-              score = Math.min(90, detected.length * 25);
-              // If detected list is long, allow full 100
-              if (detected.length >= 4) score = 100;
-            } else {
-              score = 0;
-            }
-
-            analysis.score = score;
-            analysis.found_skills = found;
-            analysis.missing_skills = missing;
-            analysis.strengths = (analysis.skills || []).slice(0, 5);
-            analysis.improvement_suggestions = missing.length > 0 ? missing.map(s => `Consider adding or highlighting ${s} on your resume`) : ["Consider adding quantifiable achievements to improve your match."];
-          }
-
-          // cleanup
-          await fs.unlink(tmpPath).catch(() => {});
-          return NextResponse.json(analysis);
-        }
-      } catch (pyErr) {
-        console.warn("Python analyzer failed, falling back to Gemini. Error:", pyErr && pyErr.message);
-        // continue to fallback
-      }
-    } catch (fileErr) {
-      console.error("Failed to save uploaded file:", fileErr);
-      // continue to fallback to text-only flow
-    }
-
-    // Fallback: read resume as text (works for .txt uploads only)
-    const resumeText = await file.text();
-
-    // Force Gemini to ONLY return JSON
-    const prompt = `
-You are a JSON-only API. Do not include any text outside JSON.
-
-Compare the following resume and job description.
-Return ONLY valid JSON in this format:
-
-{
-  "score": number,
-  "found_skills": [string],
-  "missing_skills": [string],
-  "strengths": [string],
-  "improvement_suggestions": [string]
+function safeSkills(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value
+    .filter((skill) => typeof skill === "string")
+    .map((skill) => skill.trim().toLowerCase().slice(0, 80))
+    .filter(Boolean))].slice(0, 40);
 }
 
-Resume: """${resumeText}"""
-Job Description: """${jobDescription}"""
-`;
-
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const result = await model.generateContent(prompt);
-    const raw = result.response.text();
-
-    console.log("Gemini raw output:", raw);
-
-    // Extract JSON safely (ignores extra text)
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return NextResponse.json(
-        { error: "AI response could not be parsed", raw },
-        { status: 500 }
-      );
+function createAnalysis(skills, jobDescription) {
+  const description = jobDescription.toLowerCase();
+  const required = SKILLS.filter((skill) => description.includes(skill));
+  for (const [role, roleSkills] of Object.entries(ROLE_SKILLS)) {
+    if (description.includes(role)) {
+      for (const skill of roleSkills) {
+        if (!required.includes(skill)) required.push(skill);
+      }
     }
+  }
 
-    let analysis;
+  const detected = safeSkills(skills);
+  const foundSkills = required.filter((skill) => detected.includes(skill));
+  const missingSkills = required.filter((skill) => !detected.includes(skill));
+  const score = required.length
+    ? Math.round((foundSkills.length / required.length) * 100)
+    : Math.min(100, detected.length * 25);
+
+  return {
+    score,
+    found_skills: foundSkills,
+    missing_skills: missingSkills,
+    strengths: detected.slice(0, 5),
+    improvement_suggestions: missingSkills.length
+      ? missingSkills.slice(0, 10).map((skill) => `Consider adding or highlighting ${skill} on your resume`)
+      : ["Consider adding quantifiable achievements to strengthen your resume."],
+  };
+}
+
+function parseFile(formData) {
+  const file = formData.get("resume");
+  const jobDescription = safeString(formData.get("jobDescription"), MAX_JOB_DESCRIPTION_CHARS);
+  if (!file || typeof file.arrayBuffer !== "function" || !jobDescription) {
+    return { error: "Missing resume or job description" };
+  }
+  if (file.size > MAX_FILE_BYTES) return { error: "File size must be 5 MiB or less" };
+
+  const extension = path.extname(file.name || "").toLowerCase();
+  const allowedTypes = ALLOWED_FILES[extension];
+  if (!allowedTypes || (file.type && !allowedTypes.includes(file.type))) {
+    return { error: "Only TXT, PDF, and DOCX files are supported" };
+  }
+
+  return { file, jobDescription, extension };
+}
+
+async function parseMultipart(request) {
+  if (!request.headers.get("content-type")?.toLowerCase().startsWith("multipart/form-data")) {
+    throw new Error("INVALID_MULTIPART");
+  }
+
+  const body = await readBoundedBody(request, MAX_MULTIPART_BYTES);
+  const formRequest = new Request(request.url, {
+    method: "POST",
+    headers: { "content-type": request.headers.get("content-type") },
+    body,
+  });
+  return formRequest.formData();
+}
+
+async function analyzeWithPython(filePath) {
+  const script = path.join(process.cwd(), "scripts", "analyze_resume.py");
+  const executables = [process.env.PYTHON_PATH, "python3", "python"].filter(Boolean);
+
+  for (const executable of executables) {
     try {
-      analysis = JSON.parse(jsonMatch[0]);
-    } catch (err) {
-      return NextResponse.json(
-        { error: "Invalid JSON from AI", raw },
-        { status: 500 }
-      );
+      const { stdout } = await execFileAsync(executable, [script, filePath], {
+        timeout: PYTHON_TIMEOUT_MS,
+        maxBuffer: 32 * 1024,
+        windowsHide: true,
+      });
+      if (typeof stdout !== "string" || stdout.length > 32 * 1024) continue;
+      const result = JSON.parse(stdout);
+      if (result?.error) continue;
+      return safeSkills(result?.skills);
+    } catch {
+      // Try a compatible Python executable without logging resume-derived output.
+    }
+  }
+  return null;
+}
+
+async function analyzeWithGemini(resumeBuffer, jobDescription) {
+  const model = getGeminiModel();
+  if (!model) return null;
+
+  const resumeText = resumeBuffer.toString("utf8").slice(0, MAX_RESUME_TEXT_CHARS);
+  const prompt = `Return valid JSON only in this exact shape: {"skills":[string]}.
+Extract up to 40 professional technical skills from this TXT resume. Do not return names, contact details, addresses, education history, or any other personal information.
+Resume:\n${resumeText}\n\nJob description:\n${jobDescription}`;
+  const text = await generateBoundedContent(model, prompt);
+  return safeSkills(parseProviderJson(text)?.skills);
+}
+
+export async function POST(request) {
+  const auth = await authenticateApiRequest(request);
+  if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+  const throttle = aiRequestLimiter.check(auth.user.id);
+  if (!throttle.allowed) {
+    return NextResponse.json(
+      { error: "Please wait before analyzing another resume" },
+      { status: 429, headers: { "Retry-After": String(throttle.retryAfterSeconds) } },
+    );
+  }
+
+  let parsed;
+  try {
+    parsed = parseFile(await parseMultipart(request));
+  } catch (error) {
+    const message = error.message === "REQUEST_TOO_LARGE" ? "Upload is too large" : "Invalid upload";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
+  if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: 400 });
+
+  let temporaryDirectory;
+  try {
+    const tempRoot = path.resolve(process.env.RESUME_TEMP_ROOT || "/var/tmp");
+    await fs.mkdir(tempRoot, { recursive: true, mode: 0o700 });
+    temporaryDirectory = await fs.mkdtemp(path.join(tempRoot, "nexawork-resume-"));
+    await fs.chmod(temporaryDirectory, 0o700);
+
+    const fileBuffer = Buffer.from(await parsed.file.arrayBuffer());
+    if (fileBuffer.length > MAX_FILE_BYTES) {
+      return NextResponse.json({ error: "File size must be 5 MiB or less" }, { status: 400 });
     }
 
-    return NextResponse.json(analysis);
-  } catch (err) {
-    console.error("Resume upload error:", err);
-    return NextResponse.json(
-      { error: "Failed to process resume" },
-      { status: 500 }
-    );
+    const temporaryFile = path.join(temporaryDirectory, `resume${parsed.extension}`);
+    await fs.writeFile(temporaryFile, fileBuffer, { mode: 0o600 });
+    const skills = await analyzeWithPython(temporaryFile);
+    if (skills) return NextResponse.json(createAnalysis(skills, parsed.jobDescription));
+
+    if (parsed.extension !== ".txt") {
+      return NextResponse.json({ error: "Resume analysis is temporarily unavailable" }, { status: 503 });
+    }
+
+    try {
+      const fallbackSkills = await analyzeWithGemini(fileBuffer, parsed.jobDescription);
+      if (fallbackSkills) return NextResponse.json(createAnalysis(fallbackSkills, parsed.jobDescription));
+    } catch {
+      // Do not expose or log provider output or resume-derived failures.
+    }
+    return NextResponse.json({ error: "Resume analysis is temporarily unavailable" }, { status: 503 });
+  } catch {
+    return NextResponse.json({ error: "Failed to process resume" }, { status: 500 });
+  } finally {
+    if (temporaryDirectory) await fs.rm(temporaryDirectory, { recursive: true, force: true }).catch(() => {});
   }
 }

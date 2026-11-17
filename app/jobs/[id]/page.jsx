@@ -4,8 +4,11 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
+import RoleGate from "@/component/RoleGate";
+import { useAuth } from "@/component/AuthProvider";
 
-export default function JobDetail() {
+function JobDetail() {
+  const { profile } = useAuth();
   const params = useParams();
   const router = useRouter();
   const id = params.id;
@@ -47,9 +50,19 @@ export default function JobDetail() {
     setGenLoading(true);
 
     try {
+      const { data: { session } = {} } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        alert("You must be logged in to generate a proposal.");
+        setGenLoading(false);
+        return;
+      }
+
       const res = await fetch("/api/proposals", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({ job }),
       });
 
@@ -120,10 +133,10 @@ export default function JobDetail() {
           <div className="text-gray-400 text-6xl mb-4">❌</div>
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Job Not Found</h1>
           <p className="text-gray-600 mb-6">
-            The job you're looking for doesn't exist or has been removed.
+            The job you&apos;re looking for doesn&apos;t exist or has been removed.
           </p>
           <Link
-            href="/student/browse"
+            href={profile?.role === "business" ? "/business/dashboard" : "/student/browse"}
             className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
           >
             ← Back to Jobs
@@ -139,7 +152,7 @@ export default function JobDetail() {
         {/* Back Button */}
         <div className="mb-6">
           <Link
-            href="/student/browse"
+            href={profile?.role === "business" ? "/business/dashboard" : "/student/browse"}
             className="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors"
           >
             <svg
@@ -177,7 +190,7 @@ export default function JobDetail() {
         </div>
 
         {/* --- Proposal Section --- */}
-        <div className="bg-white rounded-2xl shadow-lg p-8 mt-6">
+        {profile?.role === "student" && <div className="bg-white rounded-2xl shadow-lg p-8 mt-6">
   <h2 className="text-2xl font-bold text-gray-900 mb-4">Send Proposal</h2>
 
   {!draft ? (
@@ -275,9 +288,13 @@ export default function JobDetail() {
       </button>
     </div>
   )}
-</div>
+</div>}
 
       </div>
     </div>
   );
+}
+
+export default function JobDetailPage() {
+  return <RoleGate><div className="nx-workspace"><JobDetail /></div></RoleGate>
 }

@@ -1,12 +1,20 @@
 {
-  "name": "freelancing",
+  "name": "nexawork",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint . --ext .js,.jsx,.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:db": "node scripts/test-database.mjs",
+    "test:e2e": "playwright test",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset --local",
+    "db:seed": "node scripts/seed-local.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -17,18 +25,34 @@
     "icons": "^1.0.0",
     "lucide": "^0.540.0",
     "lucide-react": "^0.540.0",
-    "next": "15.5.0",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
+    "next": "15.5.29",
+    "react": "19.1.10",
+    "react-dom": "19.1.10",
     "react-hot-toast": "^2.6.0",
     "react-icon": "^1.0.0",
     "react-toast": "^1.0.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "1.65.1",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.12",
+    "@vitejs/plugin-react": "6.3.0",
     "eslint": "^9",
-    "eslint-config-next": "15.5.0",
-    "tailwindcss": "^4"
+    "eslint-config-next": "15.5.29",
+    "jsdom": "31.0.1",
+    "supabase": "3.2.0",
+    "tailwindcss": "^4",
+    "vitest": "5.1.0"
+  },
+  "engines": {
+    "node": ">=24.0.0 <25",
+    "npm": ">=11 <12"
+  },
+  "packageManager": "npm@11.19.1",
+  "overrides": {
+    "postcss": "8.5.33"
   }
 }
