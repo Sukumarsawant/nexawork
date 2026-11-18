@@ -1,5 +1,5 @@
 import React from 'react'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import HeroBackground from '../app/component/HeroBackground'
@@ -23,7 +23,7 @@ beforeEach(()=>{
   vi.spyOn(HTMLMediaElement.prototype,'pause').mockImplementation(()=>{})
   vi.spyOn(HTMLMediaElement.prototype,'load').mockImplementation(()=>{})
 })
-afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.restoreAllMocks();if(originalConnection)Object.defineProperty(navigator,'connection',originalConnection);else delete navigator.connection})
+afterEach(()=>{cleanup();vi.useRealTimers();vi.unstubAllGlobals();vi.restoreAllMocks();if(originalConnection)Object.defineProperty(navigator,'connection',originalConnection);else delete navigator.connection})
 
 test('landing HTML includes usable login links and no eager video source',()=>{
   const html=renderToStaticMarkup(<HomePage />)
@@ -58,7 +58,7 @@ test('data saver and slow connections retain the poster without video',()=>{
   expect(container.querySelector('video')).toBeNull()
 })
 
-test('a hidden tab pauses and unloads the video',()=>{
+test('a hidden tab unloads the video and a visible tab restores eligibility',()=>{
   const {container}=render(<HeroBackground />)
   act(()=>idle())
   const video=container.querySelector('video')
@@ -68,6 +68,10 @@ test('a hidden tab pauses and unloads the video',()=>{
   expect(video.pause).toHaveBeenCalled()
   expect(video.hasAttribute('src')).toBe(false)
   expect(video.load).toHaveBeenCalled()
+  vi.spyOn(document,'visibilityState','get').mockReturnValue('visible')
+  act(()=>document.dispatchEvent(new Event('visibilitychange')))
+  expect(container.querySelector('video')).toHaveAttribute('src','/HeroBack.mp4')
+  expect(container.querySelector('video')).not.toBe(video)
 })
 
 test('video errors preserve the poster and do not retry downloads',()=>{
@@ -81,10 +85,50 @@ test('video errors preserve the poster and do not retry downloads',()=>{
 })
 
 test('unmount cancels deferred media work and removes event listeners',()=>{
-  const {unmount}=render(<HeroBackground />)
+  const removeMotion=vi.spyOn(motion,'removeEventListener')
+  const removeConnection=vi.spyOn(connection,'removeEventListener')
+  const removeVisibility=vi.spyOn(document,'removeEventListener')
+  const {container,unmount}=render(<HeroBackground />)
   const callback=idle
   unmount()
   expect(window.cancelIdleCallback).toHaveBeenCalledWith(7)
   act(()=>callback())
-  expect(screen.queryByRole('video')).not.toBeInTheDocument()
+  expect(container.querySelector('video')).toBeNull()
+  expect(removeMotion).toHaveBeenCalledWith('change',expect.any(Function))
+  expect(removeConnection).toHaveBeenCalledWith('change',expect.any(Function))
+  expect(removeVisibility).toHaveBeenCalledWith('visibilitychange',expect.any(Function))
+})
+
+
+test('pending page load delays scheduling until the load event',()=>{
+  vi.spyOn(document,'readyState','get').mockReturnValue('loading')
+  const {container}=render(<HeroBackground />)
+  expect(window.requestIdleCallback).not.toHaveBeenCalled()
+  expect(container.querySelector('video')).toBeNull()
+  act(()=>window.dispatchEvent(new Event('load')))
+  expect(window.requestIdleCallback).toHaveBeenCalledOnce()
+  expect(container.querySelector('video')).toBeNull()
+  act(()=>idle())
+  expect(container.querySelector('video')).toHaveAttribute('src','/HeroBack.mp4')
+})
+
+test('browsers without idle callbacks defer motion with a cancellable timer',()=>{
+  vi.useFakeTimers()
+  vi.stubGlobal('requestIdleCallback',undefined)
+  const first=render(<HeroBackground />)
+  act(()=>vi.advanceTimersByTime(249))
+  expect(first.container.querySelector('video')).toBeNull()
+  act(()=>vi.advanceTimersByTime(1))
+  expect(first.container.querySelector('video')).toHaveAttribute('src','/HeroBack.mp4')
+  first.unmount()
+  const schedule=vi.spyOn(window,'setTimeout')
+  const pending=render(<HeroBackground />)
+  const timerIndex=schedule.mock.calls.findIndex(([,delay])=>delay===250)
+  expect(timerIndex).toBeGreaterThanOrEqual(0)
+  const timer=schedule.mock.results[timerIndex].value
+  const cancel=vi.spyOn(window,'clearTimeout')
+  pending.unmount()
+  expect(cancel).toHaveBeenCalledWith(timer)
+  act(()=>vi.advanceTimersByTime(500))
+  expect(pending.container.querySelector('video')).toBeNull()
 })

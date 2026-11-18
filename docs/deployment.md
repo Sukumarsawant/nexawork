@@ -74,7 +74,7 @@ After deployment, smoke-test signup with two newly created accounts through the 
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | The new project's publishable key (or legacy anon key). Browser-safe and required. |
    | `GEMINI_API_KEY` | Optional; server-only Gemini integration. Omit it to disable AI assistance. |
    | `SUPABASE_SERVER_URL` | Optional server-only override. In this normal direct-Supabase deployment it may be omitted; if used, set it to the same public HTTPS Project URL, never a localhost URL. |
-   | `RESUME_TEMP_ROOT` | Optional server-only temporary directory. The default is `/var/tmp`; do not use a repository path. |
+   | `RESUME_TEMP_ROOT` | Required before enabling resume analysis on Vercel. Configure a platform-supported writable temporary directory and verify it in the deployed function. The default `/var/tmp` is not writable there. Do not use a repository path. |
 
    Do **not** configure `NEXT_PUBLIC_PREVIEW_AUTH_PROXY`, `SUPABASE_PREVIEW_TARGET`, or a localhost `SUPABASE_SERVER_URL` in Vercel. Those are a local preview-adapter path, not this production deployment. `NEXT_ALLOWED_DEV_ORIGINS` is development-only and should also be left unset in Vercel unless a specific development-server workflow requires exact hostnames.
 
@@ -87,7 +87,9 @@ Connected Git deployments create Preview Deployments for non-production branches
 
 The existing `app/api/uploadResume` route is a Node.js route that attempts to execute a local Python analyzer. A normal Vercel Node function does not automatically provide this executable or the repository's Python dependencies. Therefore PDF and DOCX analysis must be treated as unavailable on a default Vercel deployment; do not claim it works until it has been deliberately implemented and tested.
 
-For a TXT upload, the route can use Gemini only when the optional server-only `GEMINI_API_KEY` is configured. If it is absent or unavailable, analysis returns an unavailable result. Do not send sensitive resumes to an external provider without consent.
+Every upload, including TXT, uses a temporary directory before analysis. Vercel does not permit writes to the default `/var/tmp` location. Therefore **all resume formats are unavailable under the default configuration**, even with `GEMINI_API_KEY`. Configure `RESUME_TEMP_ROOT` as a platform-supported writable temporary directory before enabling analysis. Verify this setting in the deployed function. See the filesystem limits at https://vercel.com/docs/functions/runtimes.
+
+TXT can use the Gemini fallback only after that temporary-directory setup succeeds and the server-only `GEMINI_API_KEY` is configured. Verify the complete upload flow before claiming support. Without those verified settings, treat TXT analysis as unavailable. Do not send sensitive resumes to an external provider without consent.
 
 Vercel supports Python Functions, but they require an explicit Python function entrypoint under `/api` (or another supported Python application setup). That is not provided by the current Node route. A separately hosted parser service or an explicit, tested Python-function implementation is a future change, not a setting to turn on here: https://vercel.com/docs/functions/runtimes/python
 
@@ -101,7 +103,7 @@ Vercel supports Python Functions, but they require an explicit Python function e
 | Signup or password email lands on the wrong host or never arrives | Recheck Supabase Site URL and narrow Redirect URLs, then configure/test custom SMTP for non-team recipients. |
 | Student/business actions are denied | Create the account through the app's signup flow so the profile trigger can assign its role. Do not bypass RLS with a service-role key. Verify the four canonical migrations applied to this fresh project. |
 | Image uploads or feed images fail | Check that the migration-created public storage buckets and their RLS policies exist. Use an authenticated student and a JPEG/PNG/GIF/WebP image at most 5 MiB. Public buckets mean uploaded images are publicly retrievable. |
-| PDF/DOCX resume analysis returns unavailable | Expected on an unmodified Vercel Node deployment. TXT plus configured Gemini is the available fallback; use a deliberately implemented parser service/function before promising document parsing. |
+| Any resume upload fails or analysis returns unavailable | All formats are unavailable under the default Vercel configuration because the route first writes to `/var/tmp`. Configure and verify a writable `RESUME_TEMP_ROOT`. TXT/Gemini also requires `GEMINI_API_KEY` and a successful deployed upload test. PDF/DOCX additionally requires an implemented, tested parser service/function. |
 
 ## Handoff checklist
 
