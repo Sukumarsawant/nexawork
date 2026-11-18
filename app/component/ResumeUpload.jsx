@@ -1,6 +1,8 @@
 "use client";
+import { sessionHeaders } from "@/lib/preview-auth";
 import { useState } from "react";
 import { Upload, FileText, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { getSupabase } from "@/lib/supabaseClient";
 
 export default function ResumeUpload() {
   const [file, setFile] = useState(null);
@@ -78,13 +80,21 @@ export default function ResumeUpload() {
     setResult(null);
 
     try {
+      const supabase = getSupabase();
+      if (!supabase) throw new Error("Resume analysis is unavailable until the app is configured");
+      const { data: { session } = {} } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Please sign in before analyzing a resume");
+      }
+
       const formData = new FormData();
       formData.append("resume", file);
       formData.append("jobDescription", jobDesc);
 
       const response = await fetch("/api/uploadResume", { 
         method: "POST", 
-        body: formData 
+        headers: sessionHeaders(session.access_token),
+        body: formData,
       });
 
       let data;
@@ -139,6 +149,7 @@ export default function ResumeUpload() {
               onChange={(e) => setJobDesc(e.target.value)}
               className="w-full p-4 rounded-lg bg-[#2A2A3E] border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 resize-vertical"
               rows={4}
+              maxLength={6000}
             />
           </div>
 
@@ -177,12 +188,18 @@ export default function ResumeUpload() {
                     {file ? file.name : "Drop your resume here or click to browse"}
                   </p>
                                    <p className="text-gray-400 text-sm mt-1">
-                   Currently supports PDF files only (max 5MB)
+                   Supports TXT, PDF, and DOCX files (max 5 MiB)
                  </p>
                 </div>
               </div>
             </div>
           </div>
+
+          <p className="text-gray-400 text-xs leading-relaxed">
+            Your resume and job description are processed for this analysis. If the local analyzer is unavailable,
+            TXT content may be sent to an external AI provider. Do not upload information you would not want processed
+            for this purpose.
+          </p>
 
           {/* Error Display */}
           {error && (

@@ -1,5 +1,6 @@
 "use client";
 
+import { sessionHeaders } from "@/lib/preview-auth";
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -91,69 +92,36 @@ export default function QuizPage({ params }) {
 
     if (currentScore >= 4) {
       if (!user) {
-        alert("You must be logged in to earn a badge.");
+        alert("You must be logged in to save a practice badge.");
         setLoading(false);
         return;
       }
 
       try {
-        // First, check if the profiles table has a badges column
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('badges')
-          .eq('id', user.id)
-          .single();
+        const { data: { session } = {} } = await supabase.auth.getSession();
+        if (!session?.access_token) throw new Error("Your session has expired. Please sign in again.");
 
-        if (profileError) {
-          console.error("Error fetching profile:", profileError);
-          
-          // If badges column doesn't exist, try to create it or use a different approach
-          if (profileError.code === '42703') { // Column doesn't exist
-            alert("🎉 Congratulations! You passed the quiz! Badge system will be available soon.");
-            setSubmitted(true);
-            setLoading(false);
-            return;
-          }
-          
-          throw profileError;
-        }
+        const response = await fetch("/api/verification", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...sessionHeaders(session.access_token),
+          },
+          body: JSON.stringify({ quizId }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) throw new Error(result.error || "Practice badge could not be saved");
 
-        // Check if user already has this badge
-        const currentBadges = profile?.badges || [];
-        if (currentBadges.includes(quizId)) {
-          alert(`🎉 You already have the ${quiz.name} badge!`);
-          setSubmitted(true);
-          setLoading(false);
-          return;
-        }
-
-        // Add the new badge
-        const newBadges = [...currentBadges, quizId];
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ badges: newBadges })
-          .eq('id', user.id);
-
-        if (updateError) {
-          console.error("Error updating badges:", updateError);
-          // Still show success message even if badge saving fails
-          alert(`🎉 Congratulations! You passed the ${quiz.name} with ${currentScore}/5! Badge saved successfully.`);
-        } else {
-          alert(`🎉 Congratulations! You passed the ${quiz.name} with ${currentScore}/5 and earned a badge!`);
-        }
-        
-        setSubmitted(true);
+        alert(`You completed the ${quiz.name} practice quiz with ${currentScore}/5. Your practice badge was saved.`);
       } catch (error) {
-        console.error("Error saving badge:", error);
-        // Show success message even if badge saving fails
-        alert(`🎉 Congratulations! You passed the ${quiz.name} with ${currentScore}/5! There was an issue saving your badge, but your achievement is recorded.`);
-        setSubmitted(true);
+        alert(error.message || "Practice badge could not be saved. Please try again later.");
       }
+      setSubmitted(true);
     } else {
-      alert(`❌ You need at least 4/5 correct to earn the badge. Your score: ${currentScore}/5`);
+      alert(`You need at least 4/5 correct to save the practice badge. Your score: ${currentScore}/5`);
       setSubmitted(true);
     }
-    
+
     setLoading(false);
   };
 
@@ -170,6 +138,7 @@ export default function QuizPage({ params }) {
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">{quiz.name}</h1>
           <p className="text-gray-600 text-lg">{quiz.description}</p>
+          <p className="text-gray-500 text-sm mt-2">Practice quiz only — the browser-calculated score is not independently verified certification.</p>
           {score !== null && (
             <div className={`mt-4 p-4 rounded-lg ${score >= 4 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
               <p className="font-semibold">Your Score: {score}/{quiz.questions.length}</p>

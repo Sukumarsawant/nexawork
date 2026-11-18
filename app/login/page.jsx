@@ -1,41 +1,25 @@
 'use client'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabaseClient'
+import { Suspense, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Login from '../component/Login'
+import { useAuth } from '../component/AuthProvider'
+import { AccountState } from '../component/RoleGate'
+
+function LoginContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const changeAccount = searchParams.get('account') === 'change'
+  const { status, profile } = useAuth()
+  useEffect(() => {
+    if (status === 'authenticated') router.replace(`/${profile.role}/dashboard`)
+  }, [status, profile, router])
+  if (changeAccount && !['loading', 'authenticated'].includes(status)) return <Login />
+  if (status === 'error') return <Login />
+  if (['loading', 'missing-profile', 'authenticated'].includes(status)) return <AccountState />
+  return <Login />
+}
 
 export default function LoginPage() {
-  const router = useRouter()
-
-  useEffect(() => {
-    // Listen for sign in events only
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', session.user.id)
-            .single()
-
-          if (profile?.role === 'business') {
-            router.replace('/business/dashboard')
-          } else {
-            router.replace('/student/dashboard')
-          }
-        }
-      }
-    )
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [router])
-
-  return (
-    <div className='bg-[#0E0E12] h-screen w-full absolute top-0 left-0'>
-      <Login/>
-    </div>
-  )
+  return <Suspense fallback={<main className="nx-account-state"><p role="status">Opening sign in…</p></main>}><LoginContent /></Suspense>
 }

@@ -1,0 +1,57 @@
+name: Verify Nexawork
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm install --global npm@11.19.1
+      - run: npm ci
+      - run: npm run audit:dependencies
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+  local-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm install --global npm@11.19.1
+      - run: npm ci
+      - run: npm run db:start
+      - run: npm run db:reset
+      - run: npm run db:seed
+      - run: npm run test:db
+      - name: Configure local application
+        run: |
+          npx supabase status -o env > /var/tmp/nexawork-local.env
+          set -a
+          . /var/tmp/nexawork-local.env
+          set +a
+          printf 'NEXT_PUBLIC_SUPABASE_URL=%s\nNEXT_PUBLIC_SUPABASE_ANON_KEY=%s\n' "$API_URL" "$ANON_KEY" > .env.local
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Run browser checks against synthetic data
+        run: |
+          npm run start > /var/tmp/nexawork-app.log 2>&1 &
+          timeout 60 bash -c 'until curl -fsS http://localhost:3000/login > /dev/null; do sleep 1; done'
+          npm run test:e2e
+      - name: Stop local services
+        if: always()
+        run: npm run db:stop

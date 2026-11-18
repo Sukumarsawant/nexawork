@@ -1,27 +1,22 @@
 'use client'
 
-import { supabase } from '@/lib/supabaseClient'
+import { useState } from 'react'
+import { getSupabase } from '@/lib/supabaseClient'
 import { useRouter } from 'next/navigation'
+import { withTimeout } from './AuthProvider'
 
 export default function LogoutButton() {
   const router = useRouter()
-
-  const handleLogout = async () => {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  async function logout() {
+    setBusy(true); setError('')
     try {
-      const { error } = await supabase.auth.signOut()
+      const { error } = await withTimeout(getSupabase().auth.signOut())
       if (error) throw error
-      router.replace('/') // redirect to login page after logout
-    } catch (err) {
-      console.error('Logout error:', err.message)
-    }
+      router.replace('/login')
+    } catch { setError('We could not sign you out. Please retry.') }
+    finally { setBusy(false) }
   }
-
-  return (
-    <button
-      onClick={handleLogout}
-      className="mt-4 px-6 py-2 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition"
-    >
-      Logout
-    </button>
-  )
+  return <div><button onClick={logout} disabled={busy} className="nx-button-secondary">{busy ? 'Signing out…' : 'Sign out'}</button>{error && <p role="alert">{error}</p>}</div>
 }
