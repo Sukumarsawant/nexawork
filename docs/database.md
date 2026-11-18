@@ -100,3 +100,10 @@ from (
 ```
 
 Oversized legacy post text is deliberately not retroactively scanned by the `NOT VALID` content constraints. It remains readable; new or changed feed content must meet the current limits. Preserve a representative legacy post, legacy `image_url`, project, job, proposal, and profile during any separately planned adoption rehearsal, then verify each still reads before and after the change. The local integration script validates the fresh-schema compatibility paths; it is not a substitute for a backed-up production migration rehearsal.
+
+
+## Review boundary migration
+
+The review migration checks new community image paths against existing owned bucket objects and derives their display URLs in the app. It does not validate or rewrite unchanged legacy URLs. Storage policy prevents removal while a post references its image. Normal callers cannot execute restricted RPCs anonymously or append null practice badge IDs. The integration fixture temporarily disables the new image trigger only inside a local administrative transaction to model pre-existing legacy rows.
+
+A nullable, trigger-owned storage-object foreign key serializes new image references against deletion. The constraint preserves pre-existing unresolved paths without pretending to repair missing legacy objects. The concurrent integration test uses two local administrative sessions and the storage service's transaction-local deletion permission to verify that an in-flight publication prevents object deletion. Normal application callers cannot set that permission or the protected reference column.

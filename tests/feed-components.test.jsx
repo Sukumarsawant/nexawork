@@ -71,3 +71,10 @@ test('post card reports a failed attachment instead of silently hiding it', () =
   fireEvent.error(screen.getByAltText('Attachment shared with this community update'));
   expect(screen.getByRole('status')).toHaveTextContent('Image unavailable');
 });
+
+test('failed first-page comments remain retryable after a local comment exists', () => {
+  const onLoad = vi.fn();
+  render(<CommentThread comments={[{ id: 'local', content: 'My local comment', created_at: new Date().toISOString(), author }]} author={author} hasMore={false} loading={false} loadingMore={false} error="Comments timed out." onLoad={onLoad} onLoadMore={vi.fn()} onSubmit={vi.fn()} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Retry comments' }));
+  expect(onLoad).toHaveBeenCalledOnce();
+});

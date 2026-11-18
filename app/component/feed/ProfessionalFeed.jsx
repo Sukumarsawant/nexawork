@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/component/AuthProvider';
 import { getSupabase } from '@/lib/supabaseClient';
-import { createComment, createMutationId, createPost, fetchCommentPage, fetchFeedPage, fetchPostLikeCount, removeCommunityImage, setPostLike, uploadCommunityImage } from '@/lib/feed';
+import { createComment, createCommunityImageCandidate, createMutationId, createPost, fetchCommentPage, fetchFeedPage, fetchPostById, fetchPostLikeCount, removeCommunityImage, setPostLike, uploadCommunityImage } from '@/lib/feed';
 import FeedAvatar from './FeedAvatar';
 import FeedState from './FeedState';
 import PostCard from './PostCard';
@@ -19,7 +19,7 @@ function withCommentState(post) {
   return {
     ...post,
     comments: post.comments || [],
-    commentsLoaded: Boolean(post.commentsLoaded),
+    commentsFetched: Boolean(post.commentsFetched),
     commentsLoading: false,
     commentsLoadingMore: false,
     commentsError: null,
@@ -37,6 +37,9 @@ function profileAuthor(profile) {
   };
 }
 
+function payloadKey(content, image) { return `${content.trim()}|${image ? `${image.name}|${image.type}|${image.size}` : ''}`; }
+function orderComments(comments) { return uniqueById(comments).sort((a, b) => new Date(a.created_at) - new Date(b.created_at)); }
+
 export default function ProfessionalFeed({ heading = 'Your professional feed', description = 'Share progress, ask thoughtful questions, and learn from fellow students.' }) {
   const { user, profile, status } = useAuth();
   const client = getSupabase();
@@ -51,6 +54,7 @@ export default function ProfessionalFeed({ heading = 'Your professional feed', d
   const [retainedUpload, setRetainedUpload] = useState(null);
   const postsRef = useRef([]);
   const postMutation = useRef(null);
+  const publishInFlight = useRef(false);
   const commentMutations = useRef(new Map());
 
   useEffect(() => {
@@ -107,19 +111,44 @@ export default function ProfessionalFeed({ heading = 'Your professional feed', d
 
   const publishPost = async ({ content, image }) => {
     if (!user || !client) return { error: 'Sign in to share an update.' };
-    const mutation = postMutation.current || { id: createMutationId(), upload: null };
-    postMutation.current = mutation;
+    if (publishInFlight.current) return { error: 'Your update is already being checked. Please wait.' };
+    publishInFlight.current = true;
     setSubmitting(true);
     try {
-      if (image && !mutation.upload) mutation.upload = await uploadCommunityImage(client, user.id, image, mutation.id);
-      const savedPost = await createPost(client, { id: mutation.id, userId: user.id, content, imagePath: mutation.upload?.path, imageUrl: mutation.upload?.publicUrl });
-      setPosts((current) => uniqueById([{ ...withCommentState(savedPost), author: profileAuthor(profile) }, ...current]));
-      postMutation.current = null;
-      return {};
-    } catch (publishError) {
-      return { error: publishError.message || 'Unable to publish your update. Your draft is still here.' };
+      const nextPayloadKey = payloadKey(content, image);
+      const earlier = postMutation.current;
+      if (earlier && earlier.payloadKey !== nextPayloadKey) {
+        try {
+          const saved = await fetchPostById(client, earlier.id);
+          if (saved) {
+            setPosts((current) => uniqueById([{ ...withCommentState(saved), author: profileAuthor(profile) }, ...current]));
+            postMutation.current = null;
+            return { error: 'Your earlier update was published. Your edited draft is still here; post it again to create a new update.' };
+          }
+        } catch {
+          return { error: 'We could not confirm your earlier update. Its attachment was retained.' };
+        }
+        postMutation.current = null;
+        if (earlier.upload) {
+          setRetainedUpload(earlier.upload);
+          return { error: 'The earlier update was not published, but its image needs cleanup. Retry cleanup before posting this edited draft.' };
+        }
+      }
+      const mutation = postMutation.current || { id: createMutationId(), payloadKey: nextPayloadKey, upload: null };
+      postMutation.current = mutation;
+      try {
+        if (image && !mutation.upload) mutation.upload = createCommunityImageCandidate(user.id, image, mutation.id);
+        if (image && !mutation.upload.confirmed) mutation.upload = await uploadCommunityImage(client, image, mutation.upload);
+        const savedPost = await createPost(client, { id: mutation.id, userId: user.id, content, imagePath: mutation.upload?.path, imageUrl: mutation.upload?.publicUrl });
+        setPosts((current) => uniqueById([{ ...withCommentState(savedPost), image_public_url: mutation.upload?.publicUrl || null, author: profileAuthor(profile) }, ...current]));
+        postMutation.current = null;
+        return {};
+      } catch (publishError) {
+        return { error: publishError.message || 'Unable to publish your update. Your draft is still here.' };
+      }
     } finally {
       setSubmitting(false);
+      publishInFlight.current = false;
     }
   };
 
@@ -138,6 +167,17 @@ export default function ProfessionalFeed({ heading = 'Your professional feed', d
   const abandonUpload = async () => {
     const mutation = postMutation.current;
     const upload = mutation?.upload;
+    if (mutation && client) {
+      try {
+        const saved = await fetchPostById(client, mutation.id);
+        if (saved) {
+          setPosts((current) => uniqueById([{ ...withCommentState(saved), author: profileAuthor(profile) }, ...current]));
+          return { error: 'This update was published, so its attachment was retained.' };
+        }
+      } catch {
+        return { error: 'We could not confirm whether this update was published. Its attachment was retained.' };
+      }
+    }
     // Detach first: a subsequent text-only submission cannot reuse this object.
     postMutation.current = null;
     return cleanupUpload(upload);
@@ -169,7 +209,7 @@ export default function ProfessionalFeed({ heading = 'Your professional feed', d
     updatePost(postId, (post) => ({ ...post, commentsLoading: !more, commentsLoadingMore: more, commentsError: null }));
     try {
       const page = await fetchCommentPage(client, postId, more ? target.commentsNextCursor : null);
-      updatePost(postId, (post) => ({ ...post, comments: uniqueById(more ? [...post.comments, ...page.items] : page.items), commentsLoaded: true, commentsNextCursor: page.next_cursor }));
+      updatePost(postId, (post) => ({ ...post, comments: orderComments(more ? [...post.comments, ...page.items] : [...page.items, ...post.comments]), commentsFetched: true, commentsNextCursor: page.next_cursor }));
     } catch (commentError) {
       updatePost(postId, (post) => ({ ...post, commentsError: commentError.message || 'Unable to load comments.' }));
     } finally {
@@ -184,7 +224,7 @@ export default function ProfessionalFeed({ heading = 'Your professional feed', d
     commentMutations.current.set(postId, mutation);
     try {
       const savedComment = await createComment(client, { id: mutation.id, postId, userId: user.id, content });
-      updatePost(postId, (post) => ({ ...post, comments: uniqueById([...post.comments, { ...savedComment, author: profileAuthor(profile) }]), commentsLoaded: true, comments_count: (post.comments_count || 0) + (post.comments.some((item) => item.id === savedComment.id) ? 0 : 1) }));
+      updatePost(postId, (post) => ({ ...post, comments: orderComments([...post.comments, { ...savedComment, author: profileAuthor(profile) }]), comments_count: (post.comments_count || 0) + (post.comments.some((item) => item.id === savedComment.id) ? 0 : 1) }));
       commentMutations.current.delete(postId);
       return {};
     } catch (commentError) {
@@ -215,6 +255,7 @@ export default function ProfessionalFeed({ heading = 'Your professional feed', d
         <main className="feed-main">
           <PostComposer author={author} disabled={!client || Boolean(retainedUpload)} isSubmitting={submitting} onSubmit={publishPost} onImageRemoved={abandonUpload} />
           {retainedUpload && <p className="feed-alert feed-alert--error" role="alert">An uploaded image still needs cleanup. <button type="button" className="feed-button feed-button--text" onClick={() => cleanupUpload(retainedUpload)}>Retry image cleanup</button></p>}
+          {postMutation.current?.upload && !submitting && !retainedUpload && <button type="button" className="feed-button feed-button--text" onClick={abandonUpload}>Remove uncertain image upload</button>}
           {loading && posts.length === 0 ? <FeedState type="loading" title="Loading updates" detail="Retrieving the latest community posts." /> : error && posts.length === 0 ? <FeedState type="error" title="Updates could not load" detail={error} onRetry={loadInitial} /> : posts.length === 0 ? <FeedState type="empty" title="Start the conversation" detail="Share the first update with the student community." /> : (
             <div className="feed-list">{posts.map((post) => <PostCard key={post.id} post={post} currentAuthor={author} onLike={toggleLike} onLoadComments={(postId) => loadComments(postId)} onLoadMoreComments={(postId) => loadComments(postId, true)} onCreateComment={addComment} />)}</div>
           )}

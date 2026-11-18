@@ -1,5 +1,6 @@
 "use client";
 
+import { sessionHeaders } from "@/lib/preview-auth";
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -104,7 +105,7 @@ export default function QuizPage({ params }) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
+            ...sessionHeaders(session.access_token),
           },
           body: JSON.stringify({ quizId }),
         });

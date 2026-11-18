@@ -1,4 +1,5 @@
 "use client";
+import { sessionHeaders } from "@/lib/preview-auth";
 import { useState } from "react";
 import { Upload, FileText, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 import { getSupabase } from "@/lib/supabaseClient";
@@ -92,7 +93,7 @@ export default function ResumeUpload() {
 
       const response = await fetch("/api/uploadResume", { 
         method: "POST", 
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: sessionHeaders(session.access_token),
         body: formData,
       });
 

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { createClient } from '@supabase/supabase-js';
 
 import { localSupabaseConfig } from './local-supabase.mjs';
@@ -63,7 +64,9 @@ execFileSync('docker', [
   'exec', '-i', 'supabase_db_nexawork', 'psql', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1',
 ], {
   input: `
-    alter table public.community_posts drop constraint community_posts_content_or_image;
+    begin;
+    alter table public.community_posts drop constraint if exists community_posts_content_or_image;
+    alter table public.community_posts disable trigger validate_post_image;
     insert into public.community_posts (id, user_id, content, image_url)
     values ('${legacyPostId}', '${studentA.id}', repeat('legacy-content-', 250), 'https://legacy.example/image.png');
     alter table public.community_posts add constraint community_posts_content_or_image check (
@@ -73,6 +76,8 @@ execFileSync('docker', [
         or nullif(btrim(coalesce(image_path, '')), '') is not null
       )
     ) not valid;
+    alter table public.community_posts enable trigger validate_post_image;
+    commit;
   `,
   stdio: 'pipe',
 });
@@ -192,6 +197,22 @@ const image = new Blob(['synthetic-image'], { type: 'image/png' });
 const ownPath = `${studentA.id}/${crypto.randomUUID()}.png`;
 const { error: ownUploadError } = await studentA.supabase.storage.from('community-images').upload(ownPath, image, { contentType: 'image/png' });
 expectOk(ownUploadError, 'owner uploads under their UUID folder');
+for (const refs of [{image_path:'bogus'},{image_path:`${studentB.id}/borrowed.png`},{image_url:'https://example.test/tracking.png'}]) {
+  const {error}=await studentA.supabase.from('community_posts').insert({id:crypto.randomUUID(),user_id:studentA.id,content:'',...refs});
+  assert.ok(error,'new image references must be owned existing objects');
+}
+const ownedImagePost=crypto.randomUUID();
+const {data:ownedImageRow,error:ownedImageError}=await studentA.supabase.from('community_posts').insert({
+  id:ownedImagePost,user_id:studentA.id,content:'',image_path:ownPath,image_url:'https://example.test/untrusted.png',
+}).select('id,image_path,image_url').single();
+expectOk(ownedImageError,'owned existing object accepted as image-only post');
+assert.equal(ownedImageRow.image_url,null,'new images use a validated path, not an arbitrary remote URL');
+await studentA.supabase.storage.from('community-images').remove([ownPath]);
+const {data:protectedImage,error:protectedImageError}=await studentA.supabase.storage.from('community-images').download(ownPath);
+expectOk(protectedImageError,'published object remains available after attempted cleanup');
+assert.ok(protectedImage);
+expectOk((await studentA.supabase.from('community_posts').delete().eq('id',ownedImagePost)).error,'owner removes image-post fixture');
+expectOk((await studentA.supabase.storage.from('community-images').remove([ownPath])).error,'unreferenced owned object cleanup');
 const { error: crossUploadError } = await studentB.supabase.storage
   .from('community-images').upload(`${studentA.id}/${crypto.randomUUID()}.png`, image, { contentType: 'image/png' });
 assert.ok(crossUploadError, 'other user cannot upload into an owner folder');
@@ -206,6 +227,8 @@ assert.equal('badges' in browsedStudent, false, 'business projection excludes tr
 const { error: studentBrowseError } = await studentA.supabase.rpc('browse_students', { page_size: 100 });
 assert.ok(studentBrowseError, 'students cannot call business browse projection');
 
+const {error:nullBadgeError}=await studentA.supabase.rpc('award_practice_badge',{quiz_id:null});
+assert.ok(nullBadgeError,'null practice IDs are rejected before modifying badges');
 const { data: firstBadge, error: firstBadgeError } = await studentA.supabase.rpc('award_practice_badge', { quiz_id: 'figma' });
 expectOk(firstBadgeError, 'award allowed practice badge');
 const { data: repeatedBadge, error: repeatedBadgeError } = await studentA.supabase.rpc('award_practice_badge', { quiz_id: 'figma' });
@@ -277,4 +300,33 @@ assert.ok(forgePayment, 'read-only payment records cannot be forged by normal cl
 const { error: approveOwnProposal } = await studentA.supabase.from('proposals').update({status:'accepted'}).eq('job_id',job.id);
 assert.ok(approveOwnProposal, 'students cannot approve their own proposals');
 
+const grants = execFileSync('docker',['exec','-i','supabase_db_nexawork','psql','-U','postgres','-d','postgres','-At','-v','ON_ERROR_STOP=1'],{
+  input: `select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public' and p.proname in ('bootstrap_profile','feed_page','comment_page','like_post','unlike_post','browse_students','award_practice_badge')
+    and has_function_privilege('anon',p.oid,'execute');`,encoding:'utf8',stdio:['pipe','pipe','pipe']
+}).trim();
+assert.equal(grants,'0','anonymous callers have no effective restricted-RPC execution grant');
+// Concurrency regression: policy visibility alone cannot see an uncommitted post.
+// The storage FK must serialize a concurrent delete and reject it after publication.
+const racePath=`${studentA.id}/${crypto.randomUUID()}.png`;
+expectOk((await studentA.supabase.storage.from('community-images').upload(racePath,image,{contentType:'image/png'})).error,'upload concurrent-reference fixture');
+const racePost=crypto.randomUUID();
+const lockKey=Math.floor(Math.random()*1000000000)+1;
+const psqlArgs=['exec','-i','supabase_db_nexawork','psql','-U','postgres','-d','postgres','-At','-v','ON_ERROR_STOP=1'];
+const runPsql=(sql)=>promisify(execFile)('docker',[...psqlArgs,'-c',sql],{timeout:15000,maxBuffer:1024*1024});
+const publishing=runPsql(`begin; insert into public.community_posts(id,user_id,content,image_path) values ('${racePost}','${studentA.id}','','${racePath}'); select pg_advisory_xact_lock(${lockKey}); select pg_sleep(3); commit;`);
+let publishingReady=false;
+for(let attempt=0;attempt<30;attempt++) {
+  const {stdout}=await runPsql(`select exists(select 1 from pg_locks where locktype='advisory' and objid=${lockKey} and granted);`);
+  if(stdout.trim()==='t'){publishingReady=true;break;}
+  await new Promise(resolve=>setTimeout(resolve,50));
+}
+assert.ok(publishingReady,'post transaction reaches its uncommitted-reference checkpoint');
+let deletionError;
+try {await runPsql(`begin; set local storage.allow_delete_query='true'; delete from storage.objects where bucket_id='community-images' and name='${racePath}'; commit;`);} catch(error){deletionError=error;}
+await publishing;
+assert.ok(deletionError?.stderr?.includes('community_post_image_object_fk'),'concurrent cleanup cannot delete an image referenced by an in-flight post');
+expectOk((await studentA.supabase.storage.from('community-images').download(racePath)).error,'concurrently referenced image remains retrievable');
+expectOk((await studentA.supabase.from('community_posts').delete().eq('id',racePost)).error,'remove concurrent-reference fixture');
+expectOk((await studentA.supabase.storage.from('community-images').remove([racePath])).error,'cleanup no-longer-referenced image');
 console.log('Local database integration checks passed.');

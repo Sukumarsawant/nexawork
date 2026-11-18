@@ -17,7 +17,7 @@ Next.js serves the React application and server API routes. Supabase provides em
 
 `AuthProvider` restores the session and resolves its profile. It reports finite loading, signed-out, configuration, missing-profile, and error states. `RoleGate` restricts student/business layouts and keys workspace children by user identifier. An account change clears loaded account-specific UI.
 
-Signup sends a display name and validated role as metadata. Database bootstrap creates the profile once. It does not change an existing role. Full profile rows remain owner-readable. The profile form sends an allowlist of editable fields, not role, badge, rating, or verification flags.
+Signup sends a display name and validated role as metadata. Database bootstrap creates the profile once. It does not change an existing role. Full profile rows remain owner-readable. Profile-image saves retain uncertain uploads for bounded retry rather than deleting an image that a delayed save may reference. Such uploads remain public until resolved or administratively cleaned. The profile form sends an allowlist of editable fields, not role, badge, rating, or verification flags.
 
 Feed author projections expose only identifiers, display names, usernames, and avatars. Business student browsing has a separate business-only projection. Do not add a broad public profile policy to make a join work.
 
@@ -25,7 +25,7 @@ Feed author projections expose only identifiers, display names, usernames, and a
 
 Dashboard and community share one feed implementation. Cursor pagination uses timestamp plus UUID for a stable order. Each query limits page size. A unique post/user key makes a like idempotent. Counts come from stored engagement rows, not client-writable counters.
 
-Posts and comments render plain text. Mutations retain generated identifiers for retries. Failed writes retain drafts and report a local error. Refresh is explicit; this version does not use realtime subscriptions or ranking.
+Posts and comments render plain text. Mutations retain generated identifiers for retries. Failed writes retain drafts and report a local error. Mutation identifiers bind immutable payloads; uncertain saves are reconciled before retry or attachment cleanup. New image references require an existing owned object, and storage cannot delete an object while a post references it. Refresh is explicit; this version does not use realtime subscriptions or ranking.
 
 The visual system uses charcoal surfaces, restrained violet actions, Geist typography, common control variants, and semantic feedback. Token choices do not replace live keyboard, layout, or contrast checks.
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import { SALARY_RANGES, matchesSalaryRange } from "@/lib/jobs";
 import { 
   Search, 
   Filter, 
@@ -34,7 +35,7 @@ export default function BrowseJobs() {
   const employmentTypes = ["Full-time", "Part-time", "Contract", "Internship", "Freelance"];
   const seniorityLevels = ["Entry", "Junior", "Mid-level", "Senior", "Lead", "Executive"];
   const jobFunctions = ["Engineering", "Design", "Marketing", "Sales", "Product", "Operations", "Finance", "HR", "Other"];
-  const salaryRanges = ["$0-$50k", "$50k-$100k", "$100k-$150k", "$150k+"];
+  const salaryRanges = SALARY_RANGES;
 
   useEffect(() => {
     fetchJobs();
@@ -78,8 +79,7 @@ export default function BrowseJobs() {
     const matchesJobFunction = !selectedJobFunction || 
       job.job_function === selectedJobFunction;
 
-    const matchesSalary = !salaryRange || 
-      (job.salary && job.salary.includes(salaryRange.split('-')[0]));
+    const matchesSalary = matchesSalaryRange(job.salary, salaryRange);
 
     return matchesSearch && matchesLocation && matchesEmploymentType && 
            matchesSeniority && matchesJobFunction && matchesSalary;
@@ -95,8 +95,8 @@ export default function BrowseJobs() {
   };
 
   const formatSalary = (salary) => {
-    if (!salary) return "Salary not specified";
-    return salary;
+    if (salary == null || salary === "") return "Salary not specified";
+    return `${Number(salary).toLocaleString()} (currency not specified)`;
   };
 
   const getEmploymentTypeColor = (type) => {
@@ -143,7 +143,7 @@ export default function BrowseJobs() {
               Discover Your Next Opportunity
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Browse through thousands of job opportunities and find the perfect match for your skills and career goals
+              Browse posted job opportunities and find work that fits your skills.
             </p>
           </div>
         </div>

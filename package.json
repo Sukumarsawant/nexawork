@@ -9,6 +9,7 @@
     "lint": "eslint . --ext .js,.jsx,.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
+    "audit:dependencies": "node scripts/audit-dependencies.mjs",
     "test:db": "node scripts/test-database.mjs",
     "test:e2e": "playwright test",
     "db:start": "supabase start",
@@ -53,6 +54,12 @@
   },
   "packageManager": "npm@11.19.1",
   "overrides": {
-    "postcss": "8.5.33"
+    "postcss": "8.5.33",
+    "@typescript-eslint/eslint-plugin": "8.73.0",
+    "@typescript-eslint/parser": "8.73.0",
+    "@typescript-eslint/type-utils": "8.73.0",
+    "@typescript-eslint/typescript-estree": "8.73.0",
+    "@typescript-eslint/utils": "8.73.0",
+    "eslint-import-resolver-typescript": "4.4.5"
   }
 }

@@ -33,7 +33,7 @@ export default function PostCard({ post, currentAuthor, onLike, onLoadComments, 
   const toggleComments = () => {
     const shouldOpen = !commentsOpen;
     setCommentsOpen(shouldOpen);
-    if (shouldOpen && !post.commentsLoaded) onLoadComments(post.id);
+    if (shouldOpen && !post.commentsFetched) onLoadComments(post.id);
   };
 
   return (

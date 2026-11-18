@@ -32,21 +32,21 @@
 .nx-account-card small { font-size: 12px; color: var(--nx-muted); }
 .nx-field { min-height: 48px; width: 100%; padding: 12px; color: var(--nx-white); border: 1px solid var(--nx-control-line); border-radius: 8px; background: var(--nx-input); font-size: 16px; line-height: 24px; }
 .nx-field::placeholder { color: var(--nx-muted); opacity: 1; }
-.nx-field:disabled { color: #8992a2; background: var(--nx-raised); }
+.nx-field:disabled { color: var(--nx-disabled); background: var(--nx-raised); }
 .nx-button-primary, .nx-button-secondary { min-height: 44px; border-radius: 8px; padding: 10px 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; }
-.nx-button-primary { background: var(--nx-primary); color: #fff; border: 1px solid transparent; }
-.nx-button-primary:hover:not(:disabled) { background: #6d28d9; }
-.nx-button-primary:active:not(:disabled) { background: #5b21b6; }
+.nx-button-primary { background: var(--nx-primary); color: var(--nx-on-primary); border: 1px solid transparent; }
+.nx-button-primary:hover:not(:disabled) { background: var(--nx-primary-hover); }
+.nx-button-primary:active:not(:disabled) { background: var(--nx-primary-pressed); }
 .nx-button-secondary { background: transparent; color: var(--nx-text); border: 1px solid var(--nx-control-line); }
 .nx-button-secondary:hover:not(:disabled) { background: var(--nx-raised); }
-.nx-button-primary:disabled, .nx-button-secondary:disabled { background: var(--nx-raised); color: #8992a2; cursor: not-allowed; }
+.nx-button-primary:disabled, .nx-button-secondary:disabled { background: var(--nx-raised); color: var(--nx-disabled); cursor: not-allowed; }
 .nx-submit { width: 100%; min-height: 48px; margin-top: 16px; }
 .nx-text-link { color: var(--nx-accent); min-height: 44px; display: inline-flex; align-items: center; padding: 8px 4px; background: none; font-size: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .nx-account-card .nx-eyebrow { color: var(--nx-muted); font-size: 12px; letter-spacing: 1.2px; margin-bottom: 16px; }
 .nx-account-card .nx-auth-switch { text-align: center; margin-top: 16px; }
-.nx-account-card .nx-feedback-error { color: #fca5a5; background: #321f24; }
-.nx-account-card .nx-feedback-warning { color: #fcd68a; background: #332b1d; }
-.nx-account-card .nx-feedback-success { color: #86e0b5; background: #193027; }
+.nx-account-card .nx-feedback-error { color: var(--nx-error); background: var(--nx-error-bg); }
+.nx-account-card .nx-feedback-warning { color: var(--nx-warning); background: var(--nx-warning-bg); }
+.nx-account-card .nx-feedback-success { color: var(--nx-success); background: var(--nx-success-bg); }
 .nx-feedback-error, .nx-feedback-warning, .nx-feedback-success { padding: 12px; border-radius: 8px; margin-top: 16px; display: flex; align-items: flex-start; gap: 8px; line-height: 21px; font-size: 14px; }
 .nx-feedback-warning svg { flex: 0 0 auto; }
 .nx-login-footer { color: var(--nx-muted); text-align: center; font-size: 12px; }

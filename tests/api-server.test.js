@@ -12,12 +12,14 @@ vi.mock("@supabase/supabase-js", () => ({
 
 import {
   authenticateApiRequest,
+  createTimeoutFetch,
   createPerUserRateLimiter,
   readBoundedBody,
   readBoundedJson,
 } from "@/lib/server/api";
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   delete process.env.NEXT_PUBLIC_SUPABASE_URL;
   delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   state.getUser.mockReset();
@@ -73,5 +75,19 @@ describe("bounded API helpers", () => {
       error: "Authentication service is unavailable",
       status: 503,
     });
+  });
+
+  it("keeps the network deadline active when headers arrive before a stalled body", async () => {
+    vi.stubGlobal("fetch", vi.fn((_input, init) => {
+      const stalledBody = new ReadableStream({
+        start(controller) {
+          init.signal.addEventListener("abort", () => controller.error(new Error("aborted")), { once: true });
+        },
+      });
+      return Promise.resolve(new Response(stalledBody, { status: 200 }));
+    }));
+
+    const response = await createTimeoutFetch(10)("http://localhost/test");
+    await expect(response.text()).rejects.toThrow();
   });
 });

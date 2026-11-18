@@ -37,6 +37,9 @@ Without Supabase configuration, the app shows setup guidance rather than crashin
 | `GEMINI_API_KEY` | Optional server-only Gemini assistance |
 | `RESUME_TEMP_ROOT` | Optional server-only upload workspace; defaults to `/var/tmp` |
 | `PYTHON_PATH` | Optional Python executable for the resume analyzer |
+| `SUPABASE_SERVER_URL` | Optional server-only Supabase URL; normal setups use the public URL |
+| `NEXT_PUBLIC_PREVIEW_AUTH_PROXY` | Optional preview-only auth-header workaround; disabled by default |
+| `SUPABASE_PREVIEW_TARGET` | Optional preview-only fixed loopback backend; see `.env.example` |
 | `NEXT_ALLOWED_DEV_ORIGINS` | Optional comma-separated exact preview hostnames |
 
 For resume parsing, install `scripts/requirements.txt` in a Python virtual environment and set `PYTHON_PATH` to that environment's Python executable. See `docs/architecture.md` for AI and privacy limits.
@@ -44,6 +47,7 @@ For resume parsing, install `scripts/requirements.txt` in a Python virtual envir
 ## Verification
 
 ```bash
+npm run audit:dependencies
 npm run lint
 npm test
 npm run build
@@ -69,6 +73,7 @@ Database checks require the local Supabase stack and synthetic fixtures. Browser
 - [Architecture and boundaries](docs/architecture.md)
 - [Database setup and migration safety](docs/database.md)
 - [Testing and evidence limits](docs/testing.md)
+- [Development dependency advisory policy](docs/dependency-security.md)
 - [Honest portfolio presentation](docs/resume.md)
 
 ## Original contributors

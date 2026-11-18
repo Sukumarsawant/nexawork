@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   model: null,
   providerText: "",
   limiter: { allowed: true, retryAfterSeconds: 0 },
+  withTimeout: (promise) => promise,
 }));
 
 vi.mock("@/lib/server/api", () => ({
@@ -20,6 +21,7 @@ vi.mock("@/lib/server/api", () => ({
   },
   readBoundedBody: async () => Buffer.alloc(0),
   safeString: (value, maxLength) => typeof value === "string" && value.length <= maxLength ? value.trim() : "",
+  withTimeout: (...args) => state.withTimeout(...args),
 }));
 
 vi.mock("@/lib/server/ai", () => ({
@@ -41,6 +43,7 @@ beforeEach(() => {
   state.model = null;
   state.providerText = "";
   state.limiter = { allowed: true, retryAfterSeconds: 0 };
+  state.withTimeout = (promise) => promise;
 });
 
 describe("proposal API", () => {
@@ -89,6 +92,19 @@ describe("verification API", () => {
     state.body = { quizId: "admin-badge" };
     const response = await verificationPost(request());
     expect(response.status).toBe(400);
+  });
+
+  it("returns a controlled timeout when the practice badge RPC stalls", async () => {
+    state.auth = async () => ({
+      user: { id: "student-1" },
+      supabase: { rpc: vi.fn(() => new Promise(() => {})) },
+    });
+    state.body = { quizId: "figma" };
+    state.withTimeout = async () => { throw new Error("OPERATION_TIMED_OUT"); };
+
+    const response = await verificationPost(request());
+    expect(response.status).toBe(504);
+    expect(await response.json()).toEqual({ success: false, error: "Practice badge request timed out" });
   });
 });
 

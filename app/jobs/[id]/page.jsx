@@ -1,5 +1,6 @@
 "use client";
 
+import { sessionHeaders } from "@/lib/preview-auth";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -61,7 +62,7 @@ function JobDetail() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
+          ...sessionHeaders(session.access_token),
         },
         body: JSON.stringify({ job }),
       });

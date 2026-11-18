@@ -196,7 +196,9 @@ p{
 }
 
 .feed-profile-card:hover { border-color: var(--nx-control-line); }
+.feed-profile-card > div { min-width: 0; }
 .feed-profile-card h2 { margin: 0; font-size: 16px; line-height: 22px; font-weight: 600; overflow-wrap: anywhere; }
+.feed-profile-card p, .feed-profile-card > div { overflow-wrap: anywhere; }
 .feed-profile-card span { display: inline-block; margin-top: 12px; color: var(--nx-accent); font-size: 14px; line-height: 20px; }
 
 .feed-main,

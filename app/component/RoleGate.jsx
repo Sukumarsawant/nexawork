@@ -12,6 +12,19 @@ export function AccountState() {
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState('')
+  const router = useRouter()
+  async function changeAccount() {
+    setBusy(true); setFailure('')
+    try {
+      const result = await withTimeout(getSupabase().auth.signOut({ scope: 'local' }), 5000)
+      if (result.error) throw result.error
+    } catch {
+      // Reauthentication can replace the old session even when remote logout fails.
+    } finally {
+      setBusy(false)
+      router.push('/login?account=change')
+    }
+  }
   async function completeProfile(event) {
     event.preventDefault()
     setBusy(true)
@@ -33,6 +46,7 @@ export function AccountState() {
         {failure && <p role="alert" className="nx-feedback-error">{failure}</p>}
         <button className="nx-button-primary" disabled={busy || !name.trim()}>{busy ? 'Creating profile…' : 'Create profile'}</button>
       </form> : status === 'authenticated' ? <><p>This page belongs to a different account type.</p><Link className="nx-button-primary" href={`/${profile.role}/dashboard`}>Open my workspace</Link></> : <><p role="alert">{error || 'Sign in to open your workspace.'}</p><button className="nx-button-primary" onClick={refreshProfile}>Retry</button><Link className="nx-text-link" href="/login">Go to sign in</Link></>}
+      {['missing-profile', 'error'].includes(status) && <button className="nx-text-link" disabled={busy} onClick={changeAccount}>{busy ? 'Please wait…' : 'Use another account'}</button>}
     </section>
   </main>
 }

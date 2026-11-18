@@ -19,6 +19,7 @@ jobs:
           cache: npm
       - run: npm install --global npm@11.19.1
       - run: npm ci
+      - run: npm run audit:dependencies
       - run: npm run lint
       - run: npm test
       - run: npm run build

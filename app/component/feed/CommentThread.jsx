@@ -61,7 +61,7 @@ export default function CommentThread({ comments, author, hasMore, loading, load
               ))}
             </ol>
           )}
-          {error && comments.length > 0 && <p className="feed-alert feed-alert--error" role="alert">{error}</p>}
+          {error && comments.length > 0 && <p className="feed-alert feed-alert--error" role="alert">{error} <button type="button" className="feed-button feed-button--text" onClick={onLoad}>Retry comments</button></p>}
           {hasMore && (
             <button type="button" className="feed-button feed-button--text" onClick={onLoadMore} disabled={loadingMore}>
               {loadingMore ? 'Loading comments…' : 'Load more comments'}
