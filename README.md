@@ -70,6 +70,7 @@ Database checks require the local Supabase stack and synthetic fixtures. Browser
 
 ## Documentation
 
+- [Deploy a separate Vercel and Supabase environment](docs/deployment.md) — includes the decision between an original-project invitation and a fresh user-owned project; the existing Netlify URL is unchanged.
 - [Architecture and boundaries](docs/architecture.md)
 - [Database setup and migration safety](docs/database.md)
 - [Testing and evidence limits](docs/testing.md)
